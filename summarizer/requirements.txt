@@ -1,0 +1,12 @@
+dagster
+dagster-postgres
+psycopg2-binary
+requests
+openai
+python-dotenv
+langgraph
+langchain
+langchain_openai
+langchain-google-genai
+tavily-python
+sentence-transformers

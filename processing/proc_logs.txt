@@ -1,0 +1,51 @@
+processing_service-1  | [32m2026-02-26 15:12:17 +0000[0m - dagster.code_server - [34mINFO[0m - Starting Dagster code server for file process.py on port 4000 in process 1
+processing_service-1  | Traceback (most recent call last):
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_core/errors.py", line 279, in user_code_error_boundary
+processing_service-1  |     yield
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_grpc/server.py", line 277, in __init__
+processing_service-1  |     loadable_targets = get_loadable_targets(
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_grpc/utils.py", line 46, in get_loadable_targets
+processing_service-1  |     else loadable_targets_from_python_file(python_file, working_directory)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_core/workspace/autodiscovery.py", line 24, in loadable_targets_from_python_file
+processing_service-1  |     loaded_module = load_python_file(python_file, working_directory)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_core/code_pointer.py", line 86, in load_python_file
+processing_service-1  |     return import_module_from_path(module_name, python_file)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster_shared/seven/__init__.py", line 51, in import_module_from_path
+processing_service-1  |     spec.loader.exec_module(module)
+processing_service-1  |   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+processing_service-1  |   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+processing_service-1  |   File "/opt/dagster/app/process.py", line 154, in <module>
+processing_service-1  |     request_job=process_job
+processing_service-1  | NameError: name 'process_job' is not defined
+processing_service-1  | 
+processing_service-1  | The above exception was the direct cause of the following exception:
+processing_service-1  | 
+processing_service-1  | Traceback (most recent call last):
+processing_service-1  |   File "/usr/local/bin/dagster", line 8, in <module>
+processing_service-1  |     sys.exit(main())
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_cli/__init__.py", line 50, in main
+processing_service-1  |     cli(auto_envvar_prefix=ENV_PREFIX)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/click/core.py", line 1485, in __call__
+processing_service-1  |     return self.main(*args, **kwargs)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/click/core.py", line 1406, in main
+processing_service-1  |     rv = self.invoke(ctx)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/click/core.py", line 1873, in invoke
+processing_service-1  |     return _process_result(sub_ctx.command.invoke(sub_ctx))
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/click/core.py", line 1873, in invoke
+processing_service-1  |     return _process_result(sub_ctx.command.invoke(sub_ctx))
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/click/core.py", line 1269, in invoke
+processing_service-1  |     return ctx.invoke(self.callback, **ctx.params)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/click/core.py", line 824, in invoke
+processing_service-1  |     return callback(*args, **kwargs)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_cli/api.py", line 821, in grpc_command
+processing_service-1  |     api_servicer = DagsterApiServer(
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_grpc/server.py", line 465, in __init__
+processing_service-1  |     self._loaded_repositories: LoadedRepositories | None = LoadedRepositories(
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_grpc/server.py", line 264, in __init__
+processing_service-1  |     with user_code_error_boundary(
+processing_service-1  |   File "/usr/local/lib/python3.10/contextlib.py", line 153, in __exit__
+processing_service-1  |     self.gen.throw(typ, value, traceback)
+processing_service-1  |   File "/usr/local/lib/python3.10/site-packages/dagster/_core/errors.py", line 289, in user_code_error_boundary
+processing_service-1  |     raise new_error from e
+processing_service-1  | dagster._core.errors.DagsterUserCodeLoadError: Error occurred during the loading of Dagster definitions in
+processing_service-1  | executable_path=/usr/local/bin/python3.10, python_file=process.py, working_directory=/opt/dagster/app
