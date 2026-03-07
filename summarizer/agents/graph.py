@@ -205,11 +205,13 @@ def reporter(state: AgentState):
     2. Assign a "Stability Risk Score" (1-10).
     3. Write a brief "Impact Analysis".
     4. ANALYZE SOURCES: For each source listed above, categorize its political/editorial orientation as: "left", "center", or "right".
+    5. EXTRACT ENTITIES: Identify the most important People, Organizations, and Locations mentioned.
     
     FORMATTING RULES:
     - Start with [RISK_SCORE: X]
     - Then [IMPACT: Your analysis]
     - Then [SOURCES_JSON] {{"sources": [{{"domain": "...", "link": "...", "bias": "left/center/right"}}, ...]}} [/SOURCES_JSON]
+    - Then [ENTITIES_JSON] {{"people": ["..."], "organizations": ["..."], "locations": ["..."]}} [/ENTITIES_JSON]
     - Then write the full Markdown report starting with # {headline}.
     """
     
@@ -238,9 +240,16 @@ def reporter(state: AgentState):
                 import json
                 json_str = content.split("[SOURCES_JSON]")[1].split("[/SOURCES_JSON]")[0].strip()
                 source_analysis = json.loads(json_str).get("sources", [])
-            except Exception as parse_err:
-                print(f"!!! Error parsing source JSON: {parse_err}")
-                print(f"JSON Snippet: {content.split('[SOURCES_JSON]')[1][:100] if '[SOURCES_JSON]' in content else 'N/A'}")
+            except: pass
+            
+        # Parse Entities
+        key_entities = {"people": [], "organizations": [], "locations": []}
+        if "[ENTITIES_JSON]" in content:
+            try:
+                import json
+                json_str = content.split("[ENTITIES_JSON]")[1].split("[/ENTITIES_JSON]")[0].strip()
+                key_entities = json.loads(json_str)
+            except: pass
 
         # Clean Final Report (Remove tags)
         final_report = content
@@ -255,6 +264,7 @@ def reporter(state: AgentState):
             "risk_score": risk_score, 
             "impact_analysis": impact_analysis,
             "source_analysis": source_analysis,
+            "key_entities": key_entities,
             "status": "done"
         }
     except Exception as e:

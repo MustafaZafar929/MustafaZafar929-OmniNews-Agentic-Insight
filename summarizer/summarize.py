@@ -37,6 +37,40 @@ def is_editorial_fit(headline: str) -> bool:
         if word in h: return True
     return True
 
+def find_matching_narrative(cursor, headline):
+    """
+    Tries to find a narrative_id from a recent cluster (last 7 days) 
+    that matches the current headline.
+    """
+    # Simple keyword-based matching for now
+    # We strip common words and check for overlaps
+    words = set(headline.lower().split())
+    ignore = {'the', 'a', 'in', 'on', 'at', 'for', 'with', 'and', 'over', 'reported', 'says', 'new'}
+    keywords = [w for w in words if len(w) > 3 and w not in ignore]
+    
+    if not keywords: return str(uuid.uuid4())
+    
+    # Check for recent clusters with overlapping keywords in headline
+    # We use a simple ILIKE search for the most unique-looking keyword
+    best_keyword = max(keywords, key=len)
+    
+    query = """
+        SELECT narrative_id 
+        FROM cluster_summaries 
+        WHERE summary_text ILIKE %s 
+        AND generated_at > NOW() - INTERVAL '7 days'
+        AND narrative_id IS NOT NULL
+        LIMIT 1;
+    """
+    cursor.execute(query, (f"%{best_keyword}%",))
+    row = cursor.fetchone()
+    
+    if row:
+        print(f"--- [Linker] Found existing narrative for '{best_keyword}': {row[0]} ---")
+        return row[0]
+    
+    return str(uuid.uuid4())
+
 @asset
 def new_cluster_summaries():
     """
@@ -92,6 +126,9 @@ def new_cluster_summaries():
                 t_conn.close()
                 return
 
+            # --- NARRATIVE LINKING ---
+            n_id = find_matching_narrative(t_cursor, main_headline)
+
             initial_research = [f"Source Article: {t}\nSummary: {s}" for t, s, d, l in articles]
             source_data = [{"domain": d, "link": l} for t, s, d, l in articles]
             
@@ -112,6 +149,7 @@ def new_cluster_summaries():
             r_score = final_state.get("risk_score", 5)
             i_analysis = final_state.get("impact_analysis", "")
             s_metadata = final_state.get("source_analysis", [])
+            k_entities = final_state.get("key_entities", {})
             
             with summary_lock:
                 new_summaries.append((
@@ -119,7 +157,9 @@ def new_cluster_summaries():
                     s_text, 
                     r_score, 
                     i_analysis,
-                    psycopg2.extras.Json(s_metadata)
+                    psycopg2.extras.Json(s_metadata),
+                    psycopg2.extras.Json(k_entities),
+                    n_id
                 ))
             
             t_conn.close()
@@ -136,7 +176,7 @@ def new_cluster_summaries():
     if new_summaries:
         print(f"Saving {len(new_summaries)} summaries to DB...")
         cursor.executemany(
-            "INSERT INTO cluster_summaries (cluster_id, summary_text, risk_score, impact_analysis, source_metadata) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (cluster_id) DO NOTHING",
+            "INSERT INTO cluster_summaries (cluster_id, summary_text, risk_score, impact_analysis, source_metadata, key_entities, narrative_id) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (cluster_id) DO NOTHING",
             new_summaries
         )
         conn.commit()

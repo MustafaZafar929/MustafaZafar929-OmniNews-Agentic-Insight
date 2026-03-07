@@ -31,6 +31,18 @@ export const getBriefings = async () => {
     return data;
 };
 
+export const getNarrativeBriefings = async (narrativeId) => {
+    if (!narrativeId) return [];
+    const { data, error } = await supabase
+        .from('cluster_summaries')
+        .select('generated_at, risk_score, cluster_id, summary_text')
+        .eq('narrative_id', narrativeId)
+        .order('generated_at', { ascending: true });
+
+    if (error) throw error;
+    return data;
+};
+
 export const getLogs = async (clusterId) => {
     const { data, error } = await supabase
         .from('agent_logs')

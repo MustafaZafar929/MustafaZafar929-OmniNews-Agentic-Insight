@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageSquare, Shield, Activity, Search, Globe, ChevronRight, AlertTriangle, ExternalLink, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Shield, Activity, Search, Globe, ChevronRight, AlertTriangle, ExternalLink, BarChart3, User, Building2, MapPin, History, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getBriefings, getLogs, chatWithCopilot, supabase } from './api';
+import { getBriefings, getLogs, getNarrativeBriefings, chatWithCopilot, supabase } from './api';
 import ReactMarkdown from 'react-markdown';
 
 // --- Components ---
@@ -19,6 +19,32 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
     {active && <motion.div layoutId="active" className="ml-auto"><ChevronRight size={16} /></motion.div>}
   </button>
 );
+
+const EntityChip = ({ icon: Icon, label, colorClass }) => (
+  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all cursor-default group`}>
+    <Icon size={12} className={colorClass} />
+    <span className="text-[10px] font-medium text-gray-300 group-hover:text-white transition-colors">{label}</span>
+  </div>
+);
+
+const KeyEntities = ({ entities }) => {
+  if (!entities) return null;
+  const { people = [], organizations = [], locations = [] } = entities;
+  if (people.length === 0 && organizations.length === 0 && locations.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
+        <Activity size={12} /> Key Intelligence Entities
+      </h4>
+      <div className="flex flex-wrap gap-2">
+        {people.slice(0, 5).map(p => <EntityChip key={p} icon={User} label={p} colorClass="text-cyan-400" />)}
+        {organizations.slice(0, 5).map(o => <EntityChip key={o} icon={Building2} label={o} colorClass="text-purple-400" />)}
+        {locations.slice(0, 5).map(l => <EntityChip key={l} icon={MapPin} label={l} colorClass="text-emerald-400" />)}
+      </div>
+    </div>
+  );
+};
 
 const MediaBiasSpectrum = ({ sources }) => {
   if (!sources || sources.length === 0) return null;
@@ -87,7 +113,7 @@ const MediaBiasSpectrum = ({ sources }) => {
             className="flex items-center gap-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group hover:scale-105"
           >
             <div className={`w-1.5 h-1.5 rounded-full ${source.bias === 'left' ? 'bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]' :
-                source.bias === 'right' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' : 'bg-gray-500'
+              source.bias === 'right' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' : 'bg-gray-500'
               }`} />
             <span className="text-[10px] font-medium text-gray-400 group-hover:text-white capitalize tracking-tight">{source.domain}</span>
             <ExternalLink size={10} className="text-gray-600 group-hover:text-cyan-500 transition-colors" />
@@ -98,10 +124,65 @@ const MediaBiasSpectrum = ({ sources }) => {
   );
 };
 
+const NarrativeTimeline = ({ briefings, currentClusterId }) => {
+  if (!briefings || briefings.length <= 1) return null;
+
+  return (
+    <div className="mt-8 pt-8 border-t border-white/5">
+      <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/80 mb-4 flex items-center gap-2">
+        <History size={14} className="text-emerald-400" /> Story Evolution (Chronology)
+      </h4>
+
+      <div className="relative pl-6 border-l border-white/10 space-y-6">
+        {briefings.map((b, i) => (
+          <div key={b.cluster_id} className="relative">
+            {/* Timeline Dot */}
+            <div className={`absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full border-2 ${b.cluster_id === currentClusterId
+              ? 'bg-cyan-500 border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]'
+              : 'bg-gray-800 border-white/20'
+              }`} />
+
+            <div className={`flex flex-col gap-1 ${b.cluster_id === currentClusterId ? 'opacity-100' : 'opacity-50'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-gray-500">
+                  {new Date(b.generated_at).toLocaleDateString()} at {new Date(b.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${b.risk_score >= 7 ? 'bg-red-500/10 text-red-500' :
+                  b.risk_score >= 4 ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
+                  }`}>
+                  RISK: {b.risk_score}/10
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 line-clamp-1 italic">
+                {b.summary_text.split('\n')[0].replace('#', '').trim()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const BriefingCard = ({ briefing }) => {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (briefing.narrative_id) {
+        try {
+          const data = await getNarrativeBriefings(briefing.narrative_id);
+          setHistory(data);
+        } catch (err) {
+          console.error("Failed to fetch narrative history", err);
+        }
+      }
+    };
+    fetchHistory();
+  }, [briefing.narrative_id]);
 
   const fetchLogs = async () => {
     if (!showLogs && logs.length === 0) {
@@ -145,9 +226,13 @@ const BriefingCard = ({ briefing }) => {
         </button>
       </div>
 
-      <div className="prose prose-invert max-w-none prose-sm mb-4">
+      <div className="prose prose-invert max-w-none prose-sm mb-6">
         <ReactMarkdown>{briefing.summary_text}</ReactMarkdown>
       </div>
+
+      <KeyEntities entities={briefing.key_entities} />
+
+      <NarrativeTimeline briefings={history} currentClusterId={briefing.cluster_id} />
 
       {briefing.impact_analysis && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
