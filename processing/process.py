@@ -2,7 +2,7 @@ import os
 import uuid
 import numpy as np
 import psycopg2
-from dagster import asset, Output, Definitions, ScheduleDefinition, define_asset_job, DefaultScheduleStatus, RunStatusSensorDefinition, run_status_sensor, DagsterRunStatus, RunRequest
+from dagster import asset, Output, Definitions, ScheduleDefinition, define_asset_job, DefaultScheduleStatus, RunStatusSensorDefinition, run_status_sensor, DagsterRunStatus, RunRequest, DefaultSensorStatus, SkipReason
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 
@@ -31,7 +31,7 @@ def article_vectors():
         SELECT id, title, content_summary 
         FROM articles 
         WHERE embedding IS NULL
-        LIMIT 200; 
+        LIMIT 500; 
     """
     cursor.execute(query)
     rows = cursor.fetchall()
@@ -50,7 +50,12 @@ def article_vectors():
     
     # 4. Generate Embeddings
     print(f"Generating vectors for {len(rows)} articles...")
-    embeddings = model.encode(texts_to_embed)
+    try:
+        embeddings = model.encode(texts_to_embed)
+    except Exception as e:
+        print(f"!!! CRITICAL: Embedding generation failed: {e}")
+        conn.close()
+        return Output(0, metadata={"status": "Failed", "error": str(e)})
 
     # 5. Save Back to DB
     updates = []
@@ -162,14 +167,19 @@ process_job = define_asset_job(name="process_news_job", selection=["article_vect
 @run_status_sensor(
     run_status=DagsterRunStatus.SUCCESS,
     monitor_all_code_locations=True,
-    request_job=process_job
+    request_job=process_job,
+    default_status=DefaultSensorStatus.RUNNING
 )
 def trigger_processing_on_ingestion_success(context):
     """
     Triggers the processing job when the ingestion job succeeds.
     """
+    print(f"--- Sensor Callback: Detected {context.dagster_run.job_name} (Run ID: {context.dagster_run.run_id}) ---")
     if context.dagster_run.job_name == "ingest_news_job":
+        print(f"!!! MATCH! Yielding RunRequest for process_news_job !!!")
         yield RunRequest(job_name="process_news_job")
+    else:
+        yield SkipReason(f"Skipping: Job '{context.dagster_run.job_name}' is not 'ingest_news_job'")
 
 defs = Definitions(
     assets=[article_vectors, topic_clusters],

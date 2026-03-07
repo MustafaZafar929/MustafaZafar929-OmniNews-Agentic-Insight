@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageSquare, Shield, Activity, Search, Globe, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Shield, Activity, Search, Globe, ChevronRight, AlertTriangle, ExternalLink, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getBriefings, getLogs, chatWithCopilot } from './api';
+import { getBriefings, getLogs, chatWithCopilot, supabase } from './api';
 import ReactMarkdown from 'react-markdown';
 
 // --- Components ---
@@ -10,8 +10,8 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${active
-        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+      : 'text-gray-400 hover:bg-white/5 hover:text-white'
       }`}
   >
     <Icon size={20} />
@@ -19,6 +19,84 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
     {active && <motion.div layoutId="active" className="ml-auto"><ChevronRight size={16} /></motion.div>}
   </button>
 );
+
+const MediaBiasSpectrum = ({ sources }) => {
+  if (!sources || sources.length === 0) return null;
+
+  const biasCounts = { left: 0, center: 0, right: 0 };
+  sources.forEach(s => {
+    const b = (s.bias || 'center').toLowerCase();
+    if (biasCounts[b] !== undefined) biasCounts[b]++;
+    else biasCounts.center++;
+  });
+
+  const total = sources.length;
+  const leftPct = (biasCounts.left / total) * 100;
+  const centerPct = (biasCounts.center / total) * 100;
+  const rightPct = (biasCounts.right / total) * 100;
+
+  return (
+    <div className="mt-6 pt-6 border-t border-white/5">
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/80 flex items-center gap-2">
+          <BarChart3 size={14} className="text-cyan-400" /> Media Narrative Landscape
+        </h4>
+        <div className="flex gap-4 text-[9px] font-bold font-mono">
+          <span className="flex items-center gap-1.5 text-blue-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" /> LEFT
+          </span>
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-500" /> CENTER
+          </span>
+          <span className="flex items-center gap-1.5 text-red-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> RIGHT
+          </span>
+        </div>
+      </div>
+
+      {/* Premium Spectrum Bar */}
+      <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden flex shadow-inner">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${leftPct}%` }}
+          className="h-full bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+        />
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${centerPct}%` }}
+          className="h-full bg-gray-500/30"
+        />
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${rightPct}%` }}
+          className="h-full bg-gradient-to-l from-red-600 to-red-400 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+        />
+      </div>
+
+      {/* Source Chips */}
+      <div className="flex flex-wrap gap-2 mt-4">
+        {sources.sort((a, b) => {
+          const order = { left: 1, center: 2, right: 3 };
+          return order[a.bias] - order[b.bias];
+        }).map((source, i) => (
+          <a
+            key={i}
+            href={source.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group hover:scale-105"
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${source.bias === 'left' ? 'bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]' :
+                source.bias === 'right' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' : 'bg-gray-500'
+              }`} />
+            <span className="text-[10px] font-medium text-gray-400 group-hover:text-white capitalize tracking-tight">{source.domain}</span>
+            <ExternalLink size={10} className="text-gray-600 group-hover:text-cyan-500 transition-colors" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const BriefingCard = ({ briefing }) => {
   const [showLogs, setShowLogs] = useState(false);
@@ -43,12 +121,21 @@ const BriefingCard = ({ briefing }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-6 rounded-2xl mb-6"
+      className="glass-card p-6 rounded-2xl mb-6 border-l-4"
+      style={{ borderLeftColor: briefing.risk_score >= 7 ? '#ef4444' : briefing.risk_score >= 4 ? '#f59e0b' : '#10b981' }}
     >
       <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-2 text-xs font-mono text-cyan-500/70">
-          <Globe size={14} />
-          <span>{new Date(briefing.generated_at).toLocaleString()}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-xs font-mono text-cyan-500/70">
+            <Globe size={14} />
+            <span>{new Date(briefing.generated_at).toLocaleString()}</span>
+          </div>
+          {briefing.risk_score && (
+            <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${briefing.risk_score >= 7 ? 'text-red-500' : briefing.risk_score >= 4 ? 'text-amber-500' : 'text-emerald-500'}`}>
+              <AlertTriangle size={12} />
+              Stability Index: {briefing.risk_score}/10
+            </div>
+          )}
         </div>
         <button
           onClick={fetchLogs}
@@ -58,9 +145,22 @@ const BriefingCard = ({ briefing }) => {
         </button>
       </div>
 
-      <div className="prose prose-invert max-w-none prose-sm">
+      <div className="prose prose-invert max-w-none prose-sm mb-4">
         <ReactMarkdown>{briefing.summary_text}</ReactMarkdown>
       </div>
+
+      {briefing.impact_analysis && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 mb-2 flex items-center gap-2">
+            <Shield size={12} /> Strategic Impact Analysis
+          </h4>
+          <p className="text-xs text-gray-400 leading-relaxed italic">
+            {briefing.impact_analysis}
+          </p>
+        </div>
+      )}
+
+      <MediaBiasSpectrum sources={briefing.source_metadata} />
 
       <AnimatePresence>
         {showLogs && (
@@ -139,8 +239,8 @@ const Copilot = () => {
             className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div className={`max-w-[80%] p-4 rounded-2xl ${m.role === 'user'
-                ? 'bg-cyan-500/10 border border-cyan-500/20 text-white'
-                : 'glass-card text-gray-200'
+              ? 'bg-cyan-500/10 border border-cyan-500/20 text-white'
+              : 'glass-card text-gray-200'
               }`}>
               <ReactMarkdown className="prose prose-invert prose-sm">{m.content}</ReactMarkdown>
             </div>
@@ -182,7 +282,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchBriefings = async () => {
+    const fetchInitialData = async () => {
       try {
         const data = await getBriefings();
         setBriefings(data);
@@ -191,7 +291,30 @@ export default function App() {
       }
       setLoading(false);
     };
-    fetchBriefings();
+
+    fetchInitialData();
+
+    // --- REALTIME SUBSCRIPTION ---
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'cluster_summaries'
+        },
+        (payload) => {
+          console.log('Real-time Briefing Received:', payload.new);
+          // Prepend the new briefing to the list
+          setBriefings(prev => [payload.new, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (

@@ -18,8 +18,7 @@ llm = ChatGoogleGenerativeAI(
     model="gemini-flash-latest",
     google_api_key=GOOGLE_KEY,
     temperature=0.7,
-    max_output_tokens=4000,
-    google_api_version="v1"
+    max_output_tokens=4000
 )
 
 # Compatibility aliases
@@ -62,8 +61,9 @@ def safe_llm_invoke(messages, max_retries=5):
             return response, token_info
         except Exception as e:
             err_str = str(e).lower()
-            if "429" in err_str or "resource_exhausted" in err_str:
-                wait_time = (2 ** i) + random.random() * 2 + 5 # Start with ~7s, scaling up
+            if any(code in err_str for code in ["429", "503", "502", "504", "resource_exhausted", "service_unavailable"]):
+                # Streamlined for Paid Tier: shorter initial wait (2s vs 7s)
+                wait_time = (1.5 ** i) + random.random() * 2 + 2 
                 print(f"⚠️ Rate limit hit (429). Retrying in {wait_time:.1f}s... (Attempt {i+1}/{max_retries})")
                 time.sleep(wait_time)
                 continue
@@ -114,51 +114,27 @@ def researcher(state: AgentState):
     """
     
     # Bind tools to the LLM (simple implementation without bind_tools for now to keep it explicit)
-    # Actually, let's use the tools manually or via a clearer prompt for this 'Thinking' model.
-    # We will use the tools directly here for simplicity in this implementation phase.
-    
-    # 1. Decide if we need search
-    decision_prompt = f"""
-    Headline: {headline}
-    Notes So Far: {len(state.get('research_notes', []))} items.
-    Feedback: {feedback}
-    
-    Do you need to search for more information? 
-    Reply with "SEARCH: <query>" or "DONE" if you have enough.
-    """
-    
-    try:
-        response, token_info = safe_llm_invoke([HumanMessage(content=decision_prompt or "Start")])
-        decision = response.content
-        print(f"Researcher Decision {token_info}: {decision[:100]}...")
-    except Exception as e:
-        print(f"CRITICAL: Researcher turn failed: {e}")
-        raise e 
-    
     new_notes = []
     new_citations = []
     
-    if "SEARCH:" in decision:
-        query = decision.split("SEARCH:", 1)[1].strip()
-        print(f"Researcher Searching: {query}")
-        
-        # Call Tools
-        web_result = web_search.invoke(query)
-        db_result = retrieve_similar_articles.invoke(query)
-        
-        # Synthesize logic would go here, but for now we append the raw tool outputs as 'notes'
-        # In a real agent, we'd have the LLM parse this.
-        new_notes.append(f"Search Results for '{query}':\n{web_result}")
-        new_notes.append(f"DB Context:\n{db_result}")
-        
+    # STREAMLINED: Decision + Research in one call if it's the first turn
+    if turn == 0:
+        print(f"--- Auto-Searching for Cluster {cluster_id} ---")
+        web_result = web_search.invoke(headline)
+        new_notes.append(f"Initial Research for '{headline}':\n{web_result}")
     else:
-        print("Researcher decided no more search is needed.")
-        log_agent_step(cluster_id, "researcher", turn, f"{decision} {token_info}", f"Deciding to Stop Searching. {token_info}", run_id=run_id)
-    
+        # Subsequent turns (if feedback exists)
+        decision_prompt = f"Headline: {headline}\nFeedback: {feedback}\nReply with 'SEARCH: <query>' or 'DONE'."
+        response, _ = safe_llm_invoke([HumanMessage(content=decision_prompt)])
+        if "SEARCH:" in response.content:
+            query = response.content.split("SEARCH:", 1)[1].strip()
+            web_result = web_search.invoke(query)
+            new_notes.append(f"Follow-up for '{query}':\n{web_result}")
+
     return {
         "research_notes": new_notes,
         "turn_count": state.get("turn_count", 0) + 1,
-        "status": "researching"
+        "status": "reporting" # Go straight to reporter unless critically lacking
     }
 
 def critic(state: AgentState):
@@ -210,46 +186,80 @@ def reporter(state: AgentState):
     
     notes = "\n".join(state.get("research_notes", []))
     headline = state["headline"]
+    source_data = state.get("source_data", [])
+    
+    source_info = "\n".join([f"- {s.get('domain')}: {s.get('link')}" for s in source_data])
     
     prompt = f"""
-    You are a Senior Journalist and Geopolitical Analyst at a prestigious news outlet. 
-    Write a definitive, deep-dive 'Briefing' style report for: "{headline}".
+    You are a Senior Journalist and Geopolitical Analyst. 
+    Write a definitive briefing for: "{headline}".
     
-    EDITORIAL STREGY:
-    - Focus on strategic implications (how this affects international stability or domestic policy).
-    - Maintain a serious, analytical tone. No sensationalism.
-    
-    Use these research notes:
+    RESEARCH NOTES:
     {notes}
     
-    Required Output Structure:
-    # {headline}
+    SOURCES IN THIS CLUSTER:
+    {source_info}
     
-    ## 📰 Executive Summary
-    [Comprehensive 2-paragraph overview]
+    YOUR TASK:
+    1. Write the briefing in Markdown.
+    2. Assign a "Stability Risk Score" (1-10).
+    3. Write a brief "Impact Analysis".
+    4. ANALYZE SOURCES: For each source listed above, categorize its political/editorial orientation as: "left", "center", or "right".
     
-    ## 🔍 In-Depth Analysis
-    [Deep technical/contextual details. Use bold text for emphasis.]
-    
-    ## 📊 Key Developments
-    | Date/Phase | Event Description | Significance |
-    | :--- | :--- | :--- |
-    | ... | ... | ... |
-    
-    ## 🌐 Sources & References
-    List all source URLs found in the notes in a neat bulleted list. 
-    Format them as: [Source Title](URL) if possible, otherwise just the URL.
+    FORMATTING RULES:
+    - Start with [RISK_SCORE: X]
+    - Then [IMPACT: Your analysis]
+    - Then [SOURCES_JSON] {{"sources": [{{"domain": "...", "link": "...", "bias": "left/center/right"}}, ...]}} [/SOURCES_JSON]
+    - Then write the full Markdown report starting with # {headline}.
     """
     
     try:
         response_obj, token_info = safe_llm_invoke([HumanMessage(content=prompt or "Write report")])
-        response = response_obj.content
-        log_agent_step(state.get("cluster_id"), "reporter", 100, f"Generating final report. {token_info}", f"Reporting Finished. {token_info}", run_id=state.get("run_id"))
+        content = response_obj.content
+        
+        # Parse Risk Score
+        risk_score = 5 # Default
+        if "[RISK_SCORE:" in content:
+            try:
+                risk_score = int(content.split("[RISK_SCORE:")[1].split("]")[0].strip())
+            except: pass
+            
+        # Parse Impact
+        impact_analysis = "Regional security/market implications expected."
+        if "[IMPACT:" in content:
+            try:
+                impact_analysis = content.split("[IMPACT:")[1].split("]")[0].strip()
+            except: pass
+            
+        # Parse Source Analysis
+        source_analysis = []
+        if "[SOURCES_JSON]" in content:
+            try:
+                import json
+                json_str = content.split("[SOURCES_JSON]")[1].split("[/SOURCES_JSON]")[0].strip()
+                source_analysis = json.loads(json_str).get("sources", [])
+            except Exception as parse_err:
+                print(f"!!! Error parsing source JSON: {parse_err}")
+                print(f"JSON Snippet: {content.split('[SOURCES_JSON]')[1][:100] if '[SOURCES_JSON]' in content else 'N/A'}")
+
+        # Clean Final Report (Remove tags)
+        final_report = content
+        if "[RISK_SCORE:" in final_report:
+            final_report = final_report.split("#", 1)[-1]
+            final_report = "# " + final_report.strip()
+
+        log_agent_step(state.get("cluster_id"), "reporter", 100, f"Score: {risk_score}", f"Reporting Finished. {token_info}", run_id=state.get("run_id"))
+        
+        return {
+            "final_report": final_report, 
+            "risk_score": risk_score, 
+            "impact_analysis": impact_analysis,
+            "source_analysis": source_analysis,
+            "status": "done"
+        }
     except Exception as e:
         print(f"CRITICAL: Reporter turn failed: {e}")
         raise e
-    
-    return {"final_report": response, "status": "done"}
 
 # --- Graph Wiring ---
 
@@ -262,18 +272,12 @@ workflow.add_node("reporter", reporter)
 workflow.set_entry_point("researcher")
 
 def router(state: AgentState):
-    # Safety Valve
-    if state.get("turn_count", 0) > 1:
-        print("Turn limit reached (2 turns). Forcing Report for speed.")
+    # SAFETY VALVE: 1 turn for speed
+    if state.get("turn_count", 0) >= 1:
         return "reporter"
     
     if state.get("status") == "reporting":
         return "reporter"
-    elif state.get("status") == "researching" and state.get("critique_feedback"):
-        return "researcher" # Go back for more
-    elif state.get("status") == "researching":
-        return "critic" # Default flow
-    
     return "critic"
 
 workflow.add_conditional_edges(

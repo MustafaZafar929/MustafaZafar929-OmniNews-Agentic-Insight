@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS cluster_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cluster_id UUID NOT NULL,
     summary_text TEXT NOT NULL,
-    generated_at TIMESTAMP DEFAULT NOW()
+    risk_score INT,
+    impact_analysis TEXT,
+    generated_at TIMESTAMP DEFAULT NOW(),
+    source_metadata JSONB            -- [{domain, link, bias}, ...]
 );
 
 -- Create an index to make sorting by date fast
@@ -36,3 +39,33 @@ CREATE TABLE IF NOT EXISTS agent_logs (
     action_taken TEXT,               -- Tool used or decision made
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+
+
+
+create or replace function match_articles (
+  query_embedding vector(384),
+  match_threshold float,
+  match_count int
+)
+returns table (
+  id uuid,
+  title text,
+  content_summary text,
+  similarity float
+)
+language plpgsql
+as $$
+begin
+  return query
+  select
+    articles.id,
+    articles.title,
+    articles.content_summary,
+    1 - (articles.embedding <=> query_embedding) as similarity
+  from articles
+  where 1 - (articles.embedding <=> query_embedding) > match_threshold
+  order by similarity desc
+  limit match_count;
+end;
+$$;

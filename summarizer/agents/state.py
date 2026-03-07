@@ -20,4 +20,10 @@ class AgentState(TypedDict):
     
     # Output
     final_report: Optional[str]                        # The final markdown report
+    risk_score: Optional[int]                          # 1-10 Stability Index
+    impact_analysis: Optional[str]                     # Brief analysis of the consequences
     status: str                                        # 'researching', 'critiquing', 'reporting', 'done'
+    
+    # Source Metadata
+    source_data: Optional[List[dict]]                  # [domain, link, ...]
+    source_analysis: Optional[List[dict]]              # [domain, link, bias, ...]

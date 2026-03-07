@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import threading
 from typing import List, Dict, Any
 from langchain_core.tools import tool
 from tavily import TavilyClient
@@ -16,6 +17,7 @@ EMBEDDING_MODEL_NAME = 'all-MiniLM-L6-v2'
 
 # Global model instance (lazy load)
 _model = None
+tavily_semaphore = threading.Semaphore(1) # Tavily FREE tier: strictly 1 at a time
 
 def get_model():
     global _model
@@ -41,8 +43,9 @@ def web_search(query: str) -> str:
         return "Error: TAVILY_API_KEY not configured."
 
     try:
-        client = TavilyClient(api_key=TAVILY_API_KEY)
-        response = client.search(query, search_depth="basic", max_results=3)
+        with tavily_semaphore:
+            client = TavilyClient(api_key=TAVILY_API_KEY)
+            response = client.search(query, search_depth="basic", max_results=3)
         
         results = []
         for result in response.get("results", []):
