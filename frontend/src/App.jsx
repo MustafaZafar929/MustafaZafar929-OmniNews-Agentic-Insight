@@ -9,14 +9,16 @@ import ReactMarkdown from 'react-markdown';
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${active
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-500 group ${active
       ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+      : 'text-gray-500 hover:text-gray-200'
       }`}
   >
-    <Icon size={20} />
-    <span className="font-medium">{label}</span>
-    {active && <motion.div layoutId="active" className="ml-auto"><ChevronRight size={16} /></motion.div>}
+    <div className={`p-2 rounded-lg transition-all duration-500 ${active ? 'bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'group-hover:bg-white/5'}`}>
+      <Icon size={18} />
+    </div>
+    <span className="font-medium text-sm tracking-wide">{label}</span>
+    {active && <motion.div layoutId="active" className="ml-auto text-cyan-500"><ChevronRight size={16} /></motion.div>}
   </button>
 );
 
@@ -198,36 +200,55 @@ const BriefingCard = ({ briefing }) => {
     setShowLogs(!showLogs);
   };
 
+  const getRiskColor = (score) => {
+    if (score >= 7) return 'text-red-500 border-red-500/30 bg-red-500/10 shadow-[0_0_10px_rgba(239,68,68,0.2)]';
+    if (score >= 4) return 'text-amber-500 border-amber-500/30 bg-amber-500/10 shadow-[0_0_10px_rgba(245,158,11,0.2)]';
+    return 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-6 rounded-2xl mb-6 border-l-4"
-      style={{ borderLeftColor: briefing.risk_score >= 7 ? '#ef4444' : briefing.risk_score >= 4 ? '#f59e0b' : '#10b981' }}
+      className="glass glass-hover rounded-3xl p-8 mb-8 relative overflow-hidden group"
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-500/70">
-            <Globe size={14} />
-            <span>{new Date(briefing.generated_at).toLocaleString()}</span>
+      <div className="flex justify-between items-start mb-8">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase flex items-center gap-2">
+              <Globe size={12} /> Intelligence Feed
+            </span>
+            <span className="text-gray-800 text-[10px]">•</span>
+            <span className="text-[10px] font-mono text-gray-500">
+              {new Date(briefing.generated_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
           </div>
-          {briefing.risk_score && (
-            <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${briefing.risk_score >= 7 ? 'text-red-500' : briefing.risk_score >= 4 ? 'text-amber-500' : 'text-emerald-500'}`}>
-              <AlertTriangle size={12} />
-              Stability Index: {briefing.risk_score}/10
-            </div>
-          )}
+
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold tracking-widest uppercase transition-all duration-700 ${getRiskColor(briefing.risk_score)}`}>
+            <div className={`w-1.5 h-1.5 rounded-full bg-current animate-pulse`} />
+            STABILITY INDEX: {briefing.risk_score}/10
+          </div>
         </div>
+
         <button
           onClick={fetchLogs}
-          className="text-xs font-mono px-3 py-1 rounded-full border border-white/10 hover:border-cyan-500/50 transition-all"
+          className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2"
         >
-          {showLogs ? 'Hide Intelligence Logs' : 'View Intelligence Logs'}
+          <Search size={14} /> {showLogs ? 'Hide Logs' : 'View Intelligence Logs'}
         </button>
       </div>
 
-      <div className="prose prose-invert max-w-none prose-sm mb-6">
-        <ReactMarkdown>{briefing.summary_text}</ReactMarkdown>
+      <div className="prose prose-invert max-w-none prose-sm mb-10">
+        <ReactMarkdown
+          components={{
+            h1: ({ node, ...props }) => <h1 className="text-3xl font-extrabold tracking-tight text-white mb-6 font-outfit leading-tight" {...props} />,
+            h2: ({ node, ...props }) => <h2 className="text-xl font-bold text-cyan-400 mt-8 mb-4 font-outfit" {...props} />,
+            p: ({ node, ...props }) => <p className="text-gray-300 leading-relaxed text-base mb-5" {...props} />,
+            strong: ({ node, ...props }) => <strong className="text-white font-semibold" {...props} />
+          }}
+        >
+          {briefing.summary_text}
+        </ReactMarkdown>
       </div>
 
       <KeyEntities entities={briefing.key_entities} />
@@ -235,11 +256,11 @@ const BriefingCard = ({ briefing }) => {
       <NarrativeTimeline briefings={history} currentClusterId={briefing.cluster_id} />
 
       {briefing.impact_analysis && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 mb-2 flex items-center gap-2">
+        <div className="bg-white/10 border border-white/10 rounded-2xl p-6 mb-6">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 mb-3 flex items-center gap-2">
             <Shield size={12} /> Strategic Impact Analysis
           </h4>
-          <p className="text-xs text-gray-400 leading-relaxed italic">
+          <p className="text-sm text-gray-400 leading-relaxed italic">
             {briefing.impact_analysis}
           </p>
         </div>
@@ -403,16 +424,16 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-[#050505] text-gray-100 flex overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-white/5 flex flex-col p-6 glass">
-        <div className="flex items-center gap-3 mb-10 px-2 transition-transform hover:scale-105 cursor-pointer">
-          <div className="w-10 h-10 bg-cyan-500 rounded-lg flex items-center justify-center neon-border">
-            <Shield className="text-black" size={24} />
+    <div className="min-h-screen w-full bg-[#030303] text-gray-100 flex overflow-hidden">
+      {/* Sidebar - Fixed Glass Panel */}
+      <aside className="w-72 border-r border-white/5 flex flex-col p-8 glass z-20">
+        <div className="flex items-center gap-4 mb-12 px-2 group cursor-pointer">
+          <div className="w-12 h-12 bg-cyan-500 rounded-2xl flex items-center justify-center neon-border transition-transform transform group-hover:rotate-12 duration-500">
+            <Shield className="text-black" size={28} />
           </div>
           <div>
-            <h1 className="font-black tracking-tighter text-xl">OMNINEWS</h1>
-            <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest leading-none">Intelligence</p>
+            <h1 className="font-outfit font-extrabold tracking-tighter text-2xl text-white">OMNINEWS</h1>
+            <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-[0.3em] leading-none mt-1">Intelligence</p>
           </div>
         </div>
 
@@ -439,17 +460,26 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-12 custom-scrollbar">
-        <header className="mb-12">
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2">
-            {activeTab === 'feed' ? 'Real-time Intelligence' : 'Agentic News Copilot'}
-          </h2>
-          <p className="text-gray-500 max-w-2xl">
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto p-16 custom-scrollbar relative z-10">
+        <header className="mb-20 max-w-4xl">
+          <motion.h2
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-5xl font-outfit font-extrabold tracking-tight text-white mb-4 leading-tight"
+          >
+            {activeTab === 'feed' ? 'Intelligence Feed' : 'Agentic News Copilot'}
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-lg text-gray-400 font-light leading-relaxed max-w-2xl"
+          >
             {activeTab === 'feed'
-              ? 'Aggregated reports from the multi-agent research team, verified against global sources.'
-              : 'Interact with the intelligence core to drill down into specific news events and entities.'}
-          </p>
+              ? 'Real-time multi-agent analysis of global events, verified through diverse sources and historical context.'
+              : 'Direct interface with the OmniNews Intelligence Core. Query the entire knowledge graph.'}
+          </motion.p>
         </header>
 
         <section className="max-w-4xl">
