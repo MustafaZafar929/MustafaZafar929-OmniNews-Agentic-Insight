@@ -1,0 +1,259 @@
+# OmniNews: Agentic Intelligence — Video Presentation Script
+
+> **Estimated Duration:** 8–10 minutes  
+> **Format:** Screen recording with voiceover narration  
+> **Tip:** Show the relevant screen (code, UI, architecture diagram) while reading each section.
+
+---
+
+## SLIDE 1 — Title & Hook
+**[Show: OmniNews Dashboard — dark, glowing UI]**
+
+> "What if you could read **every major news source on Earth** — from Reuters to Al Jazeera, from Fox News to the Global Times — and have an AI team of analysts distill it all into a single intelligence briefing, every single day?
+>
+> That's what **OmniNews: Agentic Insight** does.
+>
+> This is not a chatbot. This is an autonomous, multi-agent intelligence pipeline — built with Dagster, LangGraph, and Google Gemini — that ingests, clusters, analyzes, and debates global news in real time."
+
+---
+
+## SLIDE 2 — The Problem / Motivation
+**[Show: a collage of news websites, or a simple bullet-point slide]**
+
+> "Today's information landscape is broken. There are thousands of news sources, each with their own editorial lens. A story about the same event looks completely different on CNN versus RT versus Al Jazeera.
+>
+> The average person has **no time** to read across the political spectrum.  
+> The average analyst has **no tool** that does it automatically.
+>
+> We built OmniNews to solve this. Our motivation is threefold:
+>
+> 1. **Information Overload** — There are too many sources to monitor manually. We needed automation.
+> 2. **Media Bias** — No single source tells the whole story. We needed to aggregate across the political spectrum — left, center, right, independent, and even state-backed media.
+> 3. **Shallow AI Summaries** — Existing tools just summarize. We wanted AI that **researches**, **critiques its own work**, and **debates itself** from opposing geopolitical perspectives."
+
+---
+
+## SLIDE 3 — System Architecture Overview
+**[Show: [docker-compose.yml](file:///c:/Users/musta/OneDrive/Desktop/new_etl/docker-compose.yml) or a hand-drawn architecture diagram]**
+
+> "OmniNews is a fully containerized, microservices-based system orchestrated by **Dagster**. Here's an overview of the stack:
+>
+> - **6 Docker containers** running in parallel: Ingestion, Processing, Summarizer, Investigative Agent, Frontend, and the Dagster Webserver.
+> - **Supabase PostgreSQL** with pgvector for our database — storing articles, embeddings, clusters, and AI-generated reports.
+> - **Dagster** for pipeline orchestration — with sensors that automatically chain jobs together.
+> - **LangGraph** for multi-agent workflows — powering the Researcher, Critic, and Reporter agents.
+> - **Google Gemini** as the backbone LLM for all analysis.
+> - **Tavily** for real-time web search during agent research.
+> - **React + Vite** for the frontend intelligence dashboard."
+
+---
+
+## SLIDE 4 — Feature 1: Mass-Scale RSS Ingestion
+**[Show: [injest.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/ingestion/injest.py), scrolling through the RSS feed list]**
+
+> "The pipeline starts with ingestion. We scrape over **80 RSS feeds** from around the world, carefully categorized by editorial perspective:
+>
+> - **Global Wire Services**: Reuters, AP, BBC, NPR, CNN, New York Times
+> - **Center-Left / International**: Al Jazeera, The Guardian, Deutsche Welle, Financial Times
+> - **Left / Progressive**: MSNBC, The Nation, Democracy Now
+> - **Center-Right**: Wall Street Journal, The Economist, Politico
+> - **Right / Conservative**: Fox News, Washington Times, National Review
+> - **Independent / Investigative**: The Intercept, ProPublica, Bellingcat, ICIJ
+> - **Economy / Markets**: CNBC, Bloomberg, MarketWatch, OilPrice
+> - **Middle East Depth**: Tehran Times, Times of Israel, Haaretz, Daily Sabah
+> - **Geopolitics / Think Tanks**: Foreign Affairs, Foreign Policy, Crisis Group, Atlantic Council, Brookings, CFR, CSIS
+> - **Pakistan / South Asia**: Dawn, Geo, Express Tribune, The Hindu, Indian Express
+> - **Non-Western / State-Backed**: RT, Sputnik, Xinhua, PressTV, Global Times
+>
+> Each article is filtered by a 7-day window and deduplicated using a `UNIQUE` constraint on the link. This runs on a **bi-daily schedule** — twice a day at 8 AM and 4 PM Pakistan time."
+
+---
+
+## SLIDE 5 — Feature 2: AI-Powered Clustering (NLP)
+**[Show: [process.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/processing/process.py), specifically the DBSCAN and embedding code]**
+
+> "Once the articles are ingested, the Processing Service kicks in. It does two things:
+>
+> **Step 1 — Vectorization:** Every article's title and summary are converted into a 384-dimensional vector using `SentenceTransformer` with the `all-MiniLM-L6-v2` model. This captures the **semantic meaning** of each article.
+>
+> **Step 2 — Clustering:** We run **DBSCAN** — a density-based clustering algorithm — on these vectors using cosine similarity. Articles about the same event are automatically grouped together, even if they use completely different wording.
+>
+> For example, an article from Reuters saying 'OPEC Cuts Output' and one from Al Jazeera saying 'Oil Alliance Reduces Production' will land in the **same cluster** — because their meaning is the same.
+>
+> Each cluster gets a unique UUID, creating a single 'story' from multiple sources."
+
+---
+
+## SLIDE 6 — Feature 3: Multi-Agent Summarization (LangGraph)
+**[Show: [graph.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/graph.py) — the Researcher → Critic → Reporter flow]**
+
+> "This is the heart of OmniNews. For each cluster of articles, we don't just summarize — we run a **full multi-agent intelligence workflow** built with **LangGraph**.
+>
+> The workflow has three agents:
+>
+> 1. **The Researcher** — A 'Strategic Intelligence Analyst' that reads all articles in the cluster, then uses **Tavily web search** to gather additional real-time facts. It focuses on conflict zones, economic impact, and filters out sensationalism. It can do multiple research turns for deeper analysis.
+>
+> 2. **The Critic** — A 'Senior Intelligence Editor' that reviews the Researcher's notes against strict quality criteria: Is it geopolitically relevant? Is it free from sensationalism? Does it have enough depth to assess stability risk? If the notes fail, the Critic sends feedback back to the Researcher for another round.
+>
+> 3. **The Reporter** — A 'Sovereign Intelligence Analyst' that writes the final briefing. It assigns a **Stability Risk Score** from 1 to 10, analyzes **market impact** on oil, stocks, and currencies, categorizes **source bias** as left/center/right, and extracts **key entities** — people, organizations, and locations.
+>
+> This system processes up to 15 clusters per run, with 3 running in parallel using a thread pool. Each result is **saved incrementally** — so you see progress in real time, not just at the end."
+
+---
+
+## SLIDE 6B — Deep Dive: How the Agents Actually Work
+**[Show: [state.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/state.py) first, then [graph.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/graph.py), highlighting the StateGraph and node functions]**
+
+> "Let me show you how these agents actually work under the hood. This is built on **LangGraph's StateGraph** — a framework for building stateful, multi-step AI workflows.
+>
+> **The Shared State (The Clipboard):**
+> Every agent shares a single state object — think of it as a clipboard passed between them. It contains:
+> - The `headline` and `cluster_id` being analyzed
+> - A `research_notes` list — this is **append-only**, meaning each Researcher turn *adds* to the notes instead of overwriting them
+> - A `critique_feedback` field — where the Critic writes instructions if the research isn't good enough
+> - A `turn_count` safety counter — to prevent infinite loops
+> - Output fields: `final_report`, `risk_score`, `impact_analysis`, `source_analysis`, and `key_entities`
+> - A `status` field that controls routing: `'researching'`, `'critiquing'`, `'reporting'`, or `'done'`
+>
+> **The Researcher Node — In Detail:**
+> When the Researcher runs, it receives the full state. On its first turn, it automatically calls the **Tavily web search tool** with the headline as the query. Tavily returns the top 3 real-time search results, which get appended to `research_notes`. On subsequent turns — if the Critic sent feedback — the Researcher reads the feedback, generates a follow-up search query using Gemini, then searches again.
+>
+> The Researcher also has **strategic priorities** baked into its system prompt:
+> - Prioritize conflict zones: Iran, Middle East, Russia/Ukraine, China/Taiwan
+> - Focus on economic impact: Oil, Stocks, Employment, Inflation
+> - Apply a **sensationalism filter**: Ignore celebrity gossip unless it's tied to political corruption
+>
+> **The Critic Node — The Quality Gate:**
+> The Critic receives the accumulated research notes and runs them through a strict compliance check:
+> 1. Is it geopolitical or economic in focus?
+> 2. Is it free from sensationalism?
+> 3. Does it have enough depth for a stability risk assessment?
+>
+> If the notes pass, it sets `status` to `'reporting'` and the graph moves to the Reporter. If they fail, it writes detailed feedback like *'FAIL: Too focused on domestic politics — pivot to the regional escalation implications'* and sets `status` back to `'researching'`, sending it back to the Researcher for another round.
+>
+> **The Reporter Node — Structured Output:**
+> The Reporter takes all of the accumulated research and writes the final intelligence briefing. But it doesn't just write free-form text — it produces **structured output** with specific tags that the system parses:
+> - `[RISK_SCORE: 7]` — parsed into an integer for the dashboard's color-coded risk index
+> - `[IMPACT: ...]` — parsed into the impact analysis field
+> - `[SOURCES_JSON]...[/SOURCES_JSON]` — a JSON block of sources with bias classification
+> - `[ENTITIES_JSON]...[/ENTITIES_JSON]` — a JSON block of people, organizations, and locations
+>
+> The code then strips these tags and presents the clean Markdown report on the dashboard.
+>
+> **The Router — Conditional Edges:**
+> The graph uses a [router](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/graph.py#298-309) function to decide where to go next after each node. It checks the `turn_count` against a limit — 1 turn for standard briefings, 5 turns for deep-dives — and the `status` field. This is how the Researcher-Critic loop works: the Critic can send the state back to the Researcher up to the turn limit.
+>
+> **Rate Limit Handling:**
+> All LLM calls go through a [safe_llm_invoke](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/graph.py#46-74) wrapper that implements **exponential backoff**. If Gemini returns a 429 (rate limit), 503, or 502 error, the system waits and retries up to 5 times with increasing delays. This is critical because we're making dozens of LLM calls per run across parallel threads.
+>
+> **The Editorial Filter:**
+> Before any agent even runs, each cluster goes through an [is_editorial_fit](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/summarize.py#23-68) function that checks if the headline is worth analyzing. This filters out lifestyle, entertainment, and low-impact stories so the agents only spend time on strategically relevant news."
+
+---
+
+## SLIDE 7 — Feature 4: Deep-Dive Investigation Mode
+**[Show: [server.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/server.py) — the `/investigate` endpoint + the UI 'Launch Deep-Dive' button]**
+
+> "Standard briefings are great, but sometimes you want to go deeper. OmniNews includes an **Autonomous Deep-Dive** mode.
+>
+> When a user clicks 'Launch Deep-Dive' on any briefing, it triggers the same agent pipeline — but in **high-autonomy mode**. The `is_deep_dive` flag is set to `True`, which tells the router to allow up to **5 research turns** instead of 1. The Researcher's persona also changes — from a news researcher to a 'Private Investigator' that gathers hidden details, primary sources, and conflicting reports.
+>
+> Technically, this is triggered via a **FastAPI POST endpoint** (`/investigate/{cluster_id}`) that runs in a background thread. The result is saved directly to the `investigative_report` column in the database, and the frontend picks it up instantly via **Supabase Realtime** WebSocket subscriptions — no page refresh needed."
+
+---
+
+## SLIDE 8 — Feature 5: Narrative Duel — Dialectical AI Debate
+**[Show: [duel_graph.py](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/duel_graph.py) + the Narrative Duel UI component]**
+
+> "This is the most unique feature of OmniNews: the **Narrative Duel**. It uses a completely separate LangGraph called the [DuelState](file:///c:/Users/musta/OneDrive/Desktop/new_etl/summarizer/agents/duel_graph.py#12-22) graph.
+>
+> For any briefing, the user can trigger a side-by-side AI debate between two opposing geopolitical personas:
+>
+> - **The Atlanticist Analyst** — Represents the Western security establishment. Its system prompt tells it to analyze from the perspective of NATO, the G7, and global market stability. It focuses on supply chain security, democratic alliances, and the liberal international order.
+> - **The Global South Realist** — Represents regional sovereignty. Its system prompt tells it to analyze from the perspective of BRICS+, non-Western alliances, and anti-hegemonic interests. It highlights the impact of Western intervention and sanctions on developing nations.
+>
+> Both agents receive the **exact same headline and context** — including the full investigative report if one exists — but their prompts force them to interpret it through radically different lenses.
+>
+> After both agents produce their reports, the graph moves to a **Synthesizer Node** — a 'Dialectical Intelligence Node' that:
+> 1. Identifies **Points of Convergence** — facts or risks both perspectives agree on
+> 2. Identifies **Points of Divergence** — where their core interpretations conflict
+> 3. Outputs a structured JSON with `convergence`, `divergence`, `west_summary`, and `south_summary`
+>
+> The graph is wired as a strict linear pipeline: `Atlanticist → Global South → Synthesizer → END`. This gives the user a **360-degree view** of any global event — something no single news source can provide."
+
+
+---
+
+## SLIDE 9 — Feature 6: Intelligence Dashboard (Frontend)
+**[Show: the React dashboard — scroll through a briefing card]**
+
+> "All of this is presented through a premium **Intelligence Dashboard** built with React, Vite, and Tailwind CSS.
+>
+> Each briefing card includes:
+> - A **Stability Risk Index** with color-coded severity (green/amber/red).
+> - The full **AI-generated report** rendered in rich Markdown.
+> - **Key Intelligence Entities** — extracted people, organizations, and locations displayed as interactive chips.
+> - A **Media Narrative Landscape** — a visual bias spectrum showing which sources covered the story, categorized as left, center, or right, with direct links to original articles.
+> - A **Story Evolution Timeline** — showing how the same narrative has evolved across multiple pipeline runs.
+> - **Strategic Impact Analysis** — the AI's assessment of market and security consequences.
+> - **Agent Thought Logs** — you can click 'View Intelligence Logs' to see the step-by-step thought process of each AI agent.
+>
+> The dashboard also includes a **News Copilot** — a chat interface that lets you query the entire knowledge base conversationally."
+
+---
+
+## SLIDE 10 — Feature 7: Dagster Orchestration & Automation
+**[Show: the Dagster UI at localhost:3000]**
+
+> "The entire pipeline is orchestrated by **Dagster**, with three main jobs:
+>
+> 1. `ingest_news_job` — Runs on a bi-daily cron schedule.
+> 2. `process_news_job` — Triggered automatically by a sensor when ingestion completes.
+> 3. `summarize_news_job` — Triggered automatically by a sensor when processing completes.
+>
+> This means the system is **fully autonomous**. Once deployed, it ingests, processes, and summarizes global news twice a day — without any human intervention.
+>
+> Dagster also gives us observability: we can see run history, asset lineage, sensor status, and detailed logs for every step."
+
+---
+
+## SLIDE 11 — Technology Stack Summary
+**[Show: a bullet-point slide or table]**
+
+> "To summarize the technology stack:
+>
+> | Layer | Technology |
+> |---|---|
+> | Orchestration | Dagster |
+> | Ingestion | Python, feedparser, requests |
+> | NLP / Embeddings | SentenceTransformer (all-MiniLM-L6-v2) |
+> | Clustering | scikit-learn DBSCAN + cosine similarity |
+> | Multi-Agent AI | LangGraph (StateGraph) |
+> | LLM | Google Gemini (gemini-flash-latest) |
+> | Web Search | Tavily API |
+> | Database | Supabase PostgreSQL + pgvector |
+> | Backend API | FastAPI (for Deep-Dive and Narrative Duel) |
+> | Frontend | React + Vite + Tailwind CSS + Framer Motion |
+> | Real-Time | Supabase Realtime (WebSocket subscriptions) |
+> | Deployment | Docker Compose (6 containers) |"
+
+---
+
+## SLIDE 12 — Closing
+**[Show: the dashboard one more time, or a closing title card]**
+
+> "OmniNews is not just a news aggregator. It's an **autonomous intelligence system** that reads across the entire political spectrum, clusters related stories using NLP, generates professional-grade briefings through multi-agent AI, and even debates itself from opposing geopolitical perspectives.
+>
+> It's built to answer one question: **What is really happening in the world — and who benefits from how the story is told?**
+>
+> Thank you for watching."
+
+---
+
+> [!TIP]
+> **Recording Tips:**
+> - Use OBS Studio or Loom for screen recording with voiceover.
+> - Show the **Dagster UI** when talking about orchestration.
+> - Show the **React dashboard** when talking about features 4-6.
+> - Show the **code files** when talking about features 1-3.
+> - Keep a steady, confident pace — aim for ~45-60 seconds per slide.

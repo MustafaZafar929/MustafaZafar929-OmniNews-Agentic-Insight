@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getBriefings, getLogs, getNarrativeBriefings, launchInvestigation, chatWithCopilot, supabase } from './api';
+import { getBriefings, getLogs, getNarrativeBriefings, launchInvestigation, launchDebate, chatWithCopilot, supabase } from './api';
 import {
   Globe, AlertTriangle, Search, Activity, LayoutDashboard,
   MessageSquare, Shield, Clock, TrendingUp, History,
   Cpu, Rocket, Zap, BookOpen, ChevronRight, User, Building2, MapPin,
-  BarChart3, ExternalLink
+  BarChart3, ExternalLink, Swords, Scale, Sparkles
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -131,6 +131,58 @@ const MediaBiasSpectrum = ({ sources }) => {
   );
 };
 
+const NarrativeDuel = ({ duelData }) => {
+  if (!duelData) return null;
+  const { west_summary, south_summary, convergence, divergence } = duelData;
+
+  return (
+    <div className="mt-10 pt-10 border-t border-white/5">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center border border-amber-500/30">
+          <Swords className="text-amber-400" size={20} />
+        </div>
+        <div>
+          <h4 className="text-xl font-outfit font-bold text-white leading-none">Narrative Duel</h4>
+          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Dialectical Intelligence</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Western Perspective */}
+        <div className="glass-card p-6 rounded-2xl border-l-4 border-l-blue-500/50">
+          <h5 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <Globe size={12} /> Atlanticist Strategy
+          </h5>
+          <p className="text-sm text-gray-300 leading-relaxed italic">{west_summary}</p>
+        </div>
+
+        {/* Global South Perspective */}
+        <div className="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500/50">
+          <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <MapPin size={12} /> Global South Realism
+          </h5>
+          <p className="text-sm text-gray-300 leading-relaxed italic">{south_summary}</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Scale size={14} className="text-cyan-400" /> Points of Convergence
+          </h5>
+          <p className="text-sm text-gray-400 leading-relaxed">{convergence}</p>
+        </div>
+        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Zap size={14} className="text-amber-400" /> Narrative Divergence
+          </h5>
+          <p className="text-sm text-gray-400 leading-relaxed">{divergence}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const NarrativeTimeline = ({ briefings, currentClusterId }) => {
   if (!briefings || briefings.length <= 1) return null;
 
@@ -191,10 +243,10 @@ const BriefingCard = ({ briefing }) => {
     fetchHistory();
   }, [briefing.narrative_id]);
 
-  // Real-time listener for investigation updates
+  // Real-time listener for updates (Investigation & Duel)
   useEffect(() => {
     const channel = supabase
-      .channel(`investigation-${briefing.cluster_id}`)
+      .channel(`updates-${briefing.cluster_id}`)
       .on(
         'postgres_changes',
         {
@@ -211,6 +263,13 @@ const BriefingCard = ({ briefing }) => {
           if (payload.new.is_investigating !== undefined) {
             setIsInvestigating(payload.new.is_investigating);
           }
+          if (payload.new.narrative_duel) {
+            setDuelData(payload.new.narrative_duel);
+            setIsDebating(false);
+          }
+          if (payload.new.is_debating !== undefined) {
+            setIsDebating(payload.new.is_debating);
+          }
         }
       )
       .subscribe();
@@ -222,6 +281,8 @@ const BriefingCard = ({ briefing }) => {
 
   const [isInvestigating, setIsInvestigating] = useState(briefing.is_investigating || false);
   const [investigativeReport, setInvestigativeReport] = useState(briefing.investigative_report || null);
+  const [isDebating, setIsDebating] = useState(briefing.is_debating || false);
+  const [duelData, setDuelData] = useState(briefing.narrative_duel || null);
 
   const handleInvestigate = async () => {
     setIsInvestigating(true);
@@ -230,6 +291,16 @@ const BriefingCard = ({ briefing }) => {
     } catch (err) {
       console.error("Failed to start investigation", err);
       setIsInvestigating(false);
+    }
+  };
+
+  const handleDebate = async () => {
+    setIsDebating(true);
+    try {
+      await launchDebate(briefing.cluster_id);
+    } catch (err) {
+      console.error("Failed to start debate", err);
+      setIsDebating(false);
     }
   };
 
@@ -315,35 +386,49 @@ const BriefingCard = ({ briefing }) => {
 
       <MediaBiasSpectrum sources={briefing.source_metadata} />
 
-      {/* Deep-Dive Investigation Section */}
+      <NarrativeDuel duelData={duelData} />
+
+      {/* Duel & Investigation Actions */}
       <div className="mt-10 pt-10 border-t border-white/5">
-        {!investigativeReport && !isInvestigating ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-cyan-500/5 rounded-3xl border border-dashed border-cyan-500/20 group-hover:border-cyan-500/40 transition-all">
-            <Rocket className="text-cyan-500 mb-4 animate-bounce" size={32} />
-            <h4 className="text-lg font-outfit font-bold text-white mb-2">Want the deeper floor?</h4>
-            <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
-              Launch a high-autonomy agent investigation to uncover primary sources, conflicting reports, and classified context.
-            </p>
-            <button
-              onClick={handleInvestigate}
-              className="bg-cyan-500 hover:bg-cyan-400 text-black px-8 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)]"
-            >
-              <Zap size={18} fill="currentColor" /> Launch Deep-Dive Agent
-            </button>
+        {!investigativeReport && !isInvestigating && !duelData && !isDebating ? (
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-cyan-500/5 rounded-3xl border border-dashed border-cyan-500/20 group-hover:border-cyan-500/40 transition-all">
+              <Rocket className="text-cyan-500 mb-4 animate-bounce" size={24} />
+              <h4 className="text-sm font-outfit font-bold text-white mb-2">Deep Intelligence</h4>
+              <button
+                onClick={handleInvestigate}
+                className="bg-cyan-500 hover:bg-cyan-400 text-black px-6 py-2.5 rounded-xl font-bold text-[10px] transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+              >
+                <Zap size={14} fill="currentColor" /> Launch Deep-Dive
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-amber-500/5 rounded-3xl border border-dashed border-amber-500/20 group-hover:border-amber-500/40 transition-all">
+              <Swords className="text-amber-500 mb-4" size={24} />
+              <h4 className="text-sm font-outfit font-bold text-white mb-2">Narrative Dual</h4>
+              <button
+                onClick={handleDebate}
+                className="bg-amber-500 hover:bg-amber-400 text-black px-6 py-2.5 rounded-xl font-bold text-[10px] transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+              >
+                <Scale size={14} /> Start Debate Mode
+              </button>
+            </div>
           </div>
-        ) : isInvestigating ? (
+        ) : isInvestigating || isDebating ? (
           <div className="p-12 bg-black/40 rounded-3xl border border-white/10 flex flex-col items-center">
             <div className="relative w-16 h-16 mb-6">
               <div className="absolute inset-0 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
-              <Cpu className="absolute inset-4 text-cyan-500 animate-pulse" size={32} />
+              {isInvestigating ? <Cpu className="absolute inset-4 text-cyan-500 animate-pulse" size={32} /> : <Swords className="absolute inset-4 text-amber-500 animate-pulse" size={32} />}
             </div>
-            <h4 className="text-lg font-outfit font-bold text-cyan-400 mb-2">Agent Investigation in Progress</h4>
+            <h4 className="text-lg font-outfit font-bold text-white mb-2">Agent {isInvestigating ? 'Investigation' : 'Duel'} in Progress</h4>
             <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest font-mono">
               <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Searching Primary Sources...
+              {isInvestigating ? 'Searching Primary Sources...' : 'Simulating Dialectical Narrative...'}
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {investigativeReport && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

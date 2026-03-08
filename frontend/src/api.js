@@ -113,4 +113,14 @@ export const launchInvestigation = async (clusterId) => {
     }
 };
 
+export const launchDebate = async (clusterId) => {
+    try {
+        const response = await axios.post(`http://localhost:8000/debate/${clusterId}`);
+        return response.data;
+    } catch (err) {
+        console.error("Debate Error:", err);
+        throw err;
+    }
+};
+
 export default supabase;
