@@ -2,7 +2,7 @@ import os
 import uuid
 import numpy as np
 import psycopg2
-from dagster import asset, Output, Definitions, ScheduleDefinition, define_asset_job, DefaultScheduleStatus, RunStatusSensorDefinition, run_status_sensor, DagsterRunStatus, RunRequest, DefaultSensorStatus, SkipReason
+from dagster import asset, Output, Definitions, define_asset_job, AssetSensorDefinition, asset_sensor, AssetKey, RunRequest, DefaultSensorStatus
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 
@@ -164,25 +164,23 @@ def topic_clusters():
 process_job = define_asset_job(name="process_news_job", selection=["article_vectors", "topic_clusters"])
 
 # --- SENSORS ---
-@run_status_sensor(
-    run_status=DagsterRunStatus.SUCCESS,
-    monitor_all_code_locations=True,
-    request_job=process_job,
+@asset_sensor(
+    asset_key=AssetKey("raw_news_articles"),
+    job=process_job,
     default_status=DefaultSensorStatus.RUNNING
 )
-def trigger_processing_on_ingestion_success(context):
+def trigger_processing_on_ingestion(context, asset_event):
     """
-    Triggers the processing job when the ingestion job succeeds.
+    Triggers the processing job when the ingestion asset is updated.
     """
-    print(f"--- Sensor Callback: Detected {context.dagster_run.job_name} (Run ID: {context.dagster_run.run_id}) ---")
-    if context.dagster_run.job_name == "ingest_news_job":
-        print(f"!!! MATCH! Yielding RunRequest for process_news_job !!!")
-        yield RunRequest(job_name="process_news_job")
-    else:
-        yield SkipReason(f"Skipping: Job '{context.dagster_run.job_name}' is not 'ingest_news_job'")
+    print(f"--- Asset Sensor: detected update for raw_news_articles. Requesting process_news_job. ---")
+    yield RunRequest(
+        run_key=context.cursor,
+        job_name="process_news_job"
+    )
 
 defs = Definitions(
     assets=[article_vectors, topic_clusters],
     jobs=[process_job],
-    sensors=[trigger_processing_on_ingestion_success]
+    sensors=[trigger_processing_on_ingestion]
 )

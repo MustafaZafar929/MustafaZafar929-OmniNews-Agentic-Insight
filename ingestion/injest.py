@@ -59,6 +59,22 @@ RSS_FEEDS = [
     "https://consortiumnews.com/feed/",
     "https://www.mintpressnews.com/feed/",
 
+    # ---- Economy / Markets / Energy ----
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.cnbc.com/id/15839072/device/rss/rss.html", # Economy
+    "https://www.bloomberg.com/politics/feeds/site.xml",
+    "https://oilprice.com/rss/main",
+    "https://www.marketwatch.com/rss/topstories",
+    "https://www.investing.com/rss/news.rss",
+    
+    # ---- Middle East Depth (Iran / Israel / Arab Space) ----
+    "https://www.tehrantimes.com/rss",
+    "https://www.timesofisrael.com/feed/",
+    "https://www.haaretz.com/cmlink/1.4624422",
+    "https://www.anews.com.tr/rss/world",
+    "https://www.jordantimes.com/rss",
+    "https://www.dailysabah.com/rss/world.xml",
+
     # ---- Geopolitics / Conflict / Security ----
     "https://www.foreignaffairs.com/rss.xml",
     "https://foreignpolicy.com/feed/",
@@ -66,6 +82,8 @@ RSS_FEEDS = [
     "https://www.defensenews.com/arc/outboundfeeds/rss/",
     "https://jamestown.org/feed/",
     "https://www.mei.edu/rss.xml",
+    "https://www.atlanticcouncil.org/feed/",
+    "https://www.chathamhouse.org/rss.xml",
 
     # ---- Think Tanks / Policy ----
     "https://www.brookings.edu/feed/",
@@ -104,7 +122,9 @@ RSS_FEEDS = [
     "https://sputniknews.com/export/rss2/archive/index.xml",
     "https://english.news.cn/rss/worldrss.xml",
     "https://www.presstv.ir/rss",
-    "https://www.globaltimes.cn/rss/outbrain.xml"
+    "https://www.globaltimes.cn/rss/outbrain.xml",
+    "https://www.tasnimnews.com/en/rss/all", # Iranian Agency
+    "https://en.mehrnews.com/rss" # Iranian Agency
 ]
 
 
@@ -136,7 +156,7 @@ def raw_news_articles():
         try:
             # We use requests with a timeout to prevent hanging and IncompleteRead
             # Some servers are flaky; requests handles certain edge cases better than feedparser's internal client
-            response = requests.get(feed_url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (OmniNews-Bot/1.0)"})
+            response = requests.get(feed_url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"})
             response.raise_for_status()
             feed = feedparser.parse(response.content)
         except Exception as e:

@@ -1,3 +1,5 @@
+fastapi
+uvicorn
 dagster
 dagster-postgres
 psycopg2-binary

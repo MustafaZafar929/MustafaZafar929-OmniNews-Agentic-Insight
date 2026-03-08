@@ -28,3 +28,4 @@ class AgentState(TypedDict):
     source_data: Optional[List[dict]]                  # [domain, link, ...]
     source_analysis: Optional[List[dict]]              # [domain, link, bias, ...]
     key_entities: Optional[dict]                       # {"people": [], "organizations": [], "locations": []}
+    is_deep_dive: bool                                 # Whether to run in high-autonomy mode

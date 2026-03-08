@@ -90,7 +90,7 @@ def researcher(state: AgentState):
     existing_notes = "\n".join(state.get("research_notes", []))
     
     prompt = f"""
-    You are a thorough News Researcher. 
+    You are a Strategic Intelligence Analyst specializing in Geopolitics and Global Economics.
     Headline: "{headline}"
     
     Current Notes:
@@ -99,18 +99,17 @@ def researcher(state: AgentState):
     Feedback from Critic (Address this!):
     {feedback or "None"}
     
-    Your goal is to gather facts to write a comprehensive geopolitical and policy briefing.
+    GOAL: Gather critical facts to assess global stability and market impact.
     
-    EDITORIAL PRIORITIES:
-    - PRIORITIZE: Conflict developments, international relations, policy changes, and security analysis.
-    - AVOID: Celebrity news, local crime, or purely sensational/clickbait headlines unless they have significant national or global impact.
+    STRATEGIC PRIORITIES:
+    - CONFLICT ZONES: Prioritize Iran, Middle East, USA, Israel, Palestine, Lebanon, Russia/Ukraine, and China/Taiwan.
+    - ECONOMIC IMPACT: Focus on news affecting Oil Prices, Stock Markets, Employment, Inflation, and Central Bank policies.
+    - SENSATIONALISM FILTER: Strictly ignore celebrity gossip, hollywood news, or entertainment drama UNLESS it is directly tied to political corruption (e.g., Epstein-related) or high-level policy.
     
-    1. If you have enough info, just summarize the key NEW facts you found.
-    2. If you need more info (or if the Critic gave feedback), use the Search Tool.
-    
-    Return a list of NEW facts found in this turn. 
-    Prefix each fact with "FACT:".
-    If you used a tool, include the Source URL in brackets [Source].
+    INSTRUCTIONS:
+    1. Assess if the headline has strategic importance. If it's purely sensational, state why and suggest stopping.
+    2. If strategic, gather detailed facts using the Search Tool to uncover regional stability risks or economic ripples.
+    3. Return a list of NEW facts found. Prefix with "FACT:". Include [Source] for citations.
     """
     
     # Bind tools to the LLM (simple implementation without bind_tools for now to keep it explicit)
@@ -118,23 +117,38 @@ def researcher(state: AgentState):
     new_citations = []
     
     # STREAMLINED: Decision + Research in one call if it's the first turn
+    is_deep_dive = state.get("is_deep_dive", False)
+    
     if turn == 0:
-        print(f"--- Auto-Searching for Cluster {cluster_id} ---")
+        print(f"--- Auto-Searching for Cluster {cluster_id} (Deep Dive: {is_deep_dive}) ---")
         web_result = web_search.invoke(headline)
         new_notes.append(f"Initial Research for '{headline}':\n{web_result}")
     else:
-        # Subsequent turns (if feedback exists)
-        decision_prompt = f"Headline: {headline}\nFeedback: {feedback}\nReply with 'SEARCH: <query>' or 'DONE'."
+        # Subsequent turns (if feedback exists or if it's a deep dive)
+        context = f"Headline: {headline}\nNotes: {existing_notes}\nFeedback: {feedback}"
+        if is_deep_dive:
+            role = "You are a Private Investigator. Gather hidden details, primary sources, and conflicting reports."
+        else:
+            role = "You are a News Researcher. Gather facts for a briefing."
+            
+        decision_prompt = f"{role}\n{context}\nReply with 'SEARCH: <query>' or 'DONE'."
         response, _ = safe_llm_invoke([HumanMessage(content=decision_prompt)])
         if "SEARCH:" in response.content:
             query = response.content.split("SEARCH:", 1)[1].strip()
             web_result = web_search.invoke(query)
-            new_notes.append(f"Follow-up for '{query}':\n{web_result}")
+            new_notes.append(f"Follow-up Search for '{query}':\n{web_result}")
+
+    # Logic to decide next state
+    next_status = "reporting"
+    if is_deep_dive and turn < 5: # Allow 5 research steps in deep dive
+        next_status = "researching"
+    elif turn < 1 and not is_deep_dive:
+        next_status = "researching" # Standard gets at least 1-2 turns
 
     return {
         "research_notes": new_notes,
         "turn_count": state.get("turn_count", 0) + 1,
-        "status": "reporting" # Go straight to reporter unless critically lacking
+        "status": next_status
     }
 
 def critic(state: AgentState):
@@ -147,19 +161,19 @@ def critic(state: AgentState):
     headline = state["headline"]
     
     prompt = f"""
-    You are a strict News Editor. Review the research notes for the headline: "{headline}".
+    You are a Senior Intelligence Editor. Review the research notes for: "{headline}".
     
     Notes:
     {notes}
     
-    Checklist:
-    1. Are there at least 2 distinct sources? (Quality check - reduced for speed)
-    2. Does it focus on Geopolitics, Policy, War, or Security? 
-    3. Is it free from sensationalism and clickbait? (If it's just 'vague drama', FAIL it).
-    4. Are there enough details for a 500-word deep dive?
+    STRICT COMPLIANCE CHECK:
+    1. Geopolitical/Economic Focus: Does this report focus on real-world conflicts, security, or markets?
+    2. Zero Sensationalism: Is it free from celebrity gossip, pure clickbait, or irrelevant 'soft' news?
+    3. Depth: Does it provide enough context to assess "Stability Risk" or "Market Implications"?
+    4. Epistein/Corruption Clause: Gossip is ONLY allowed if it directly involves high-level political corruption.
     
-    If it passes, reply exactly: "PASS".
-    If it fails, reply with "FAIL: <reason and instructions for researcher>".
+    If it passes this high-stakes filter, reply: "PASS".
+    If it fails (too sensational or low-impact), reply: "FAIL: <reason> - pivot to strategic context."
     """
     
     try:
@@ -191,28 +205,28 @@ def reporter(state: AgentState):
     source_info = "\n".join([f"- {s.get('domain')}: {s.get('link')}" for s in source_data])
     
     prompt = f"""
-    You are a Senior Journalist and Geopolitical Analyst. 
-    Write a definitive briefing for: "{headline}".
+    You are a Sovereign Intelligence Analyst. Write a definitive Strategic Briefing.
+    Headline: "{headline}"
     
     RESEARCH NOTES:
     {notes}
     
-    SOURCES IN THIS CLUSTER:
+    SOURCES:
     {source_info}
     
-    YOUR TASK:
-    1. Write the briefing in Markdown.
-    2. Assign a "Stability Risk Score" (1-10).
-    3. Write a brief "Impact Analysis".
-    4. ANALYZE SOURCES: For each source listed above, categorize its political/editorial orientation as: "left", "center", or "right".
-    5. EXTRACT ENTITIES: Identify the most important People, Organizations, and Locations mentioned.
+    STRUCTURE REQUIREMENTS:
+    1. STABILITY RISK: Assign a score (1-10) based on regional/global escalation potential.
+    2. MARKET IMPACT: Analyze specific effects on Oil, Stocks, Currency, or Employment.
+    3. SOURCE BIAS: Categorize sources as left/center/right.
+    4. ENTITIES: Extract major People, Organizations, and Locations.
+    5. THE REPORT: Write a professional, data-driven intelligence report. Avoid flowery language; focus on strategic outcomes.
     
-    FORMATTING RULES:
-    - Start with [RISK_SCORE: X]
-    - Then [IMPACT: Your analysis]
-    - Then [SOURCES_JSON] {{"sources": [{{"domain": "...", "link": "...", "bias": "left/center/right"}}, ...]}} [/SOURCES_JSON]
-    - Then [ENTITIES_JSON] {{"people": ["..."], "organizations": ["..."], "locations": ["..."]}} [/ENTITIES_JSON]
-    - Then write the full Markdown report starting with # {headline}.
+    FORMATTING:
+    - [RISK_SCORE: X]
+    - [IMPACT: Market and Stability analysis]
+    - [SOURCES_JSON] ... [/SOURCES_JSON]
+    - [ENTITIES_JSON] ... [/ENTITIES_JSON]
+    - Full Markdown starts with # {headline}.
     """
     
     try:
@@ -282,13 +296,16 @@ workflow.add_node("reporter", reporter)
 workflow.set_entry_point("researcher")
 
 def router(state: AgentState):
-    # SAFETY VALVE: 1 turn for speed
-    if state.get("turn_count", 0) >= 1:
+    is_deep_dive = state.get("is_deep_dive", False)
+    turn_limit = 5 if is_deep_dive else 1
+    
+    if state.get("turn_count", 0) >= turn_limit:
         return "reporter"
     
     if state.get("status") == "reporting":
         return "reporter"
-    return "critic"
+        
+    return "researcher"
 
 workflow.add_conditional_edges(
     "researcher",

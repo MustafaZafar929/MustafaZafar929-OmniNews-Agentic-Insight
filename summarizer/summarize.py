@@ -7,7 +7,7 @@ import threading
 import json
 from concurrent.futures import ThreadPoolExecutor
 from agents.graph import app as agent_app
-from dagster import asset, Output, Definitions, define_asset_job, run_status_sensor, DagsterRunStatus, RunRequest, DefaultSensorStatus, SkipReason
+from dagster import asset, Output, Definitions, define_asset_job, AssetKey, asset_sensor, RunRequest, DefaultSensorStatus
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,20 +22,47 @@ def get_db_conn():
 
 def is_editorial_fit(headline: str) -> bool:
     """
-    Scout Filter: Checks if the headline matches our editorial priorities.
+    Scout Filter: Strictly prioritizes high-stakes Geopolitics, Economy, and Security.
     """
     h = headline.lower()
-    priority = ['war', 'conflict', 'policy', 'government', 'election', 'minister', 'president', 'summit', 
-                'nuclear', 'treaty', 'sanction', 'military', 'border', 'inflation', 'economy', 'budget',
-                'diplomatic', 'security', 'pentagon', 'white house', 'parliament', 'senate', 'legislation']
-    ignore = ['celebrity', 'hollywood', 'jim carrey', 'kardashian', 'movie', 'actor', 'singer', 'award', 
-              'red carpet', 'romance', 'dating', 'fashion', 'gossip', 'entertainment', 'tiktok', 'box office']
     
+    # 1. High-Priority Zones & Topics (Geopolitical & Conflict)
+    priority = [
+        'war', 'conflict', 'military', 'missile', 'strike', 'nuclear', 'security',
+        'iran', 'israel', 'palestine', 'gaza', 'lebanon', 'hezbollah', 'hamas',
+        'russia', 'ukraine', 'china', 'taiwan', 'usa', 'biden', 'trump', 'election',
+        'nato', 'summit', 'diplomatic', 'sanction', 'treaty', 'pentagon', 'kremlin',
+        'oil', 'energy', 'brent', 'crude', 'inflation', 'economy', 'fed', 'interest rate',
+        'employment', 'jobs report', 'stock market', 'nasdaq', 'sp500', 'recession',
+        'cyberattack', 'intelligence', 'cia', 'mossad', 'fsb', 'espionage'
+    ]
+    
+    # 2. Hard-Ignore Blocks (Unless tied to politics/epstein as per user)
+    ignore = [
+        'celebrity', 'hollywood', 'jim carrey', 'kardashian', 'movie', 'actor', 'singer', 'award', 
+        'red carpet', 'romance', 'dating', 'fashion', 'gossip', 'entertainment', 'tiktok', 'box office',
+        'sports', 'nba', 'nfl', 'football', 'cricket', 'score', 'half-time', 'lifestyle', 'travel'
+    ]
+
+    # Special Case: Allow gossip ONLY if tied to high-stakes corruption/politics
+    exceptions = ['epstein', 'corruption', 'scandal', 'indictment', 'bribery', 'investigation']
+    
+    # Check for hard ignores first
     for word in ignore:
-        if word in h: return False
+        if word in h:
+            # Check for exceptions in ignore cases
+            if any(exc in h for exc in exceptions):
+                return True
+            return False
+            
+    # Check for priority
     for word in priority:
-        if word in h: return True
-    return True
+        if word in h:
+            return True
+            
+    # If it's a generic headline, we allow it to pass through to the LLM for final vetting
+    # but we lean towards strictness for clear non-matches.
+    return False
 
 def find_matching_narrative(cursor, headline):
     """
@@ -188,22 +215,20 @@ def new_cluster_summaries():
 summarize_job = define_asset_job(name="summarize_news_job", selection=["new_cluster_summaries"])
 
 # --- SENSORS ---
-@run_status_sensor(
-    run_status=DagsterRunStatus.SUCCESS,
-    monitor_all_code_locations=True,
-    request_job=summarize_job,
+@asset_sensor(
+    asset_key=AssetKey("topic_clusters"),
+    job=summarize_job,
     default_status=DefaultSensorStatus.RUNNING
 )
-def trigger_summarize_on_process_success(context):
-    print(f"--- Sensor Callback: Detected {context.dagster_run.job_name} (Run ID: {context.dagster_run.run_id}) ---")
-    if context.dagster_run.job_name == "process_news_job":
-        print(f"!!! MATCH! Yielding RunRequest for summarize_news_job !!!")
-        yield RunRequest(job_name="summarize_news_job")
-    else:
-        yield SkipReason(f"Skipping: Job '{context.dagster_run.job_name}' is not 'process_news_job'")
+def trigger_summarize_on_clusters(context, asset_event):
+    print(f"--- Asset Sensor: detected update for topic_clusters. Requesting summarize_news_job. ---")
+    yield RunRequest(
+        run_key=context.cursor,
+        job_name="summarize_news_job"
+    )
 
 defs = Definitions(
     assets=[new_cluster_summaries],
     jobs=[summarize_job],
-    sensors=[trigger_summarize_on_process_success]
+    sensors=[trigger_summarize_on_clusters]
 )

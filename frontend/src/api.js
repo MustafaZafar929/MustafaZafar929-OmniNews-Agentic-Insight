@@ -103,4 +103,14 @@ export const chatWithCopilot = async (message) => {
     }
 };
 
+export const launchInvestigation = async (clusterId) => {
+    try {
+        const response = await axios.post(`http://localhost:8000/investigate/${clusterId}`);
+        return response.data;
+    } catch (err) {
+        console.error("Investigation Error:", err);
+        throw err;
+    }
+};
+
 export default supabase;

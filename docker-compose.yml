@@ -16,7 +16,11 @@ services:
     depends_on:
       - ingestion_service
       - processing_service
+      - summarizer_service
     command: dagster dev -w workspace.yaml -h 0.0.0.0 -p 3000
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   ingestion_service:
     build: ./ingestion
@@ -32,6 +36,9 @@ services:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
     ports:
       - "4000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   processing_service:
     build: ./processing
@@ -47,6 +54,9 @@ services:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
     ports:
       - "4001"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   summarizer_service:
     build: ./summarizer
@@ -65,6 +75,25 @@ services:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
     ports:
       - "4002"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  investigative_agent:
+    build: ./summarizer
+    command: python server.py
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+    ports:
+      - "8000:8000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      - ingestion_service
 
 
   frontend_service:

@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageSquare, Shield, Activity, Search, Globe, ChevronRight, AlertTriangle, ExternalLink, BarChart3, User, Building2, MapPin, History, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getBriefings, getLogs, getNarrativeBriefings, chatWithCopilot, supabase } from './api';
+import { getBriefings, getLogs, getNarrativeBriefings, launchInvestigation, chatWithCopilot, supabase } from './api';
+import {
+  Globe, AlertTriangle, Search, Activity, LayoutDashboard,
+  MessageSquare, Shield, Clock, TrendingUp, History,
+  Cpu, Rocket, Zap, BookOpen, ChevronRight, User, Building2, MapPin,
+  BarChart3, ExternalLink
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // --- Components ---
@@ -186,6 +191,48 @@ const BriefingCard = ({ briefing }) => {
     fetchHistory();
   }, [briefing.narrative_id]);
 
+  // Real-time listener for investigation updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`investigation-${briefing.cluster_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'cluster_summaries',
+          filter: `cluster_id=eq.${briefing.cluster_id}`
+        },
+        (payload) => {
+          if (payload.new.investigative_report) {
+            setInvestigativeReport(payload.new.investigative_report);
+            setIsInvestigating(false);
+          }
+          if (payload.new.is_investigating !== undefined) {
+            setIsInvestigating(payload.new.is_investigating);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [briefing.cluster_id]);
+
+  const [isInvestigating, setIsInvestigating] = useState(briefing.is_investigating || false);
+  const [investigativeReport, setInvestigativeReport] = useState(briefing.investigative_report || null);
+
+  const handleInvestigate = async () => {
+    setIsInvestigating(true);
+    try {
+      await launchInvestigation(briefing.cluster_id);
+    } catch (err) {
+      console.error("Failed to start investigation", err);
+      setIsInvestigating(false);
+    }
+  };
+
   const fetchLogs = async () => {
     if (!showLogs && logs.length === 0) {
       setLoadingLogs(true);
@@ -267,6 +314,57 @@ const BriefingCard = ({ briefing }) => {
       )}
 
       <MediaBiasSpectrum sources={briefing.source_metadata} />
+
+      {/* Deep-Dive Investigation Section */}
+      <div className="mt-10 pt-10 border-t border-white/5">
+        {!investigativeReport && !isInvestigating ? (
+          <div className="flex flex-col items-center justify-center p-12 bg-cyan-500/5 rounded-3xl border border-dashed border-cyan-500/20 group-hover:border-cyan-500/40 transition-all">
+            <Rocket className="text-cyan-500 mb-4 animate-bounce" size={32} />
+            <h4 className="text-lg font-outfit font-bold text-white mb-2">Want the deeper floor?</h4>
+            <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
+              Launch a high-autonomy agent investigation to uncover primary sources, conflicting reports, and classified context.
+            </p>
+            <button
+              onClick={handleInvestigate}
+              className="bg-cyan-500 hover:bg-cyan-400 text-black px-8 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+            >
+              <Zap size={18} fill="currentColor" /> Launch Deep-Dive Agent
+            </button>
+          </div>
+        ) : isInvestigating ? (
+          <div className="p-12 bg-black/40 rounded-3xl border border-white/10 flex flex-col items-center">
+            <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
+              <Cpu className="absolute inset-4 text-cyan-500 animate-pulse" size={32} />
+            </div>
+            <h4 className="text-lg font-outfit font-bold text-cyan-400 mb-2">Agent Investigation in Progress</h4>
+            <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest font-mono">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Searching Primary Sources...
+            </div>
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-cyan-500/[0.03] border border-cyan-500/10 rounded-3xl p-10 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-10 w-24 h-24 bg-cyan-500/5 blur-3xl rounded-full"></div>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center border border-cyan-500/30">
+                <BookOpen className="text-cyan-400" size={20} />
+              </div>
+              <div>
+                <h4 className="text-xl font-outfit font-bold text-white leading-none">Investigative Report</h4>
+                <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mt-1">Sovereign Intel</p>
+              </div>
+            </div>
+            <div className="prose prose-invert max-w-none prose-sm leading-relaxed text-gray-300">
+              <ReactMarkdown>{investigativeReport}</ReactMarkdown>
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       <AnimatePresence>
         {showLogs && (
