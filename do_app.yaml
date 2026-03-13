@@ -1,0 +1,100 @@
+# DigitalOcean App Spec for new_etl
+# Use 'doctl app create --spec do_app.yaml' or upload this in the DO dashboard.
+
+name: omninews-agentic-insight
+region: nyc
+services:
+  - name: frontend
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: frontend
+    dockerfile_path: Dockerfile
+    envs:
+      - key: VITE_SUPABASE_URL
+        value: https://ngdivxoeezwytiqubgry.supabase.co
+        scope: RUN_TIME
+      - key: VITE_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nZGl2eG9lZXp3eXRpcXViZ3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3ODI4NDEsImV4cCI6MjA4NTM1ODg0MX0.1dDlEaUg8Wh3ewP-86mKtUOMAz-skU3zAKo-r7iQv-s
+        scope: RUN_TIME
+      - key: VITE_OPENROUTER_API_KEY
+        scope: RUN_TIME
+    http_port: 5173
+    routes:
+      - path: /
+
+  - name: dagster-webserver
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: webserver
+    dockerfile_path: Dockerfile
+    envs:
+      - key: DAGSTER_HOME
+        value: /opt/dagster/dagster_home
+        scope: RUN_TIME
+      - key: DAGSTER_POSTGRES_USER
+        scope: RUN_TIME
+      - key: DAGSTER_POSTGRES_PASSWORD
+        scope: RUN_TIME
+      - key: DAGSTER_POSTGRES_DB
+        scope: RUN_TIME
+      - key: DAGSTER_POSTGRES_HOSTNAME
+        scope: RUN_TIME
+      - key: DAGSTER_POSTGRES_PORT
+        scope: RUN_TIME
+    http_port: 3000
+    routes:
+      - path: /dagster
+
+  - name: investigative-agent
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: summarizer
+    dockerfile_path: Dockerfile
+    run_command: python server.py
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+      - key: OPENROUTER_API_KEY
+        scope: RUN_TIME
+      - key: GOOGLE_AI_STUDIO_API_KEY
+        scope: RUN_TIME
+      - key: TAVILY_API_KEY
+        scope: RUN_TIME
+    http_port: 8000
+
+workers:
+  - name: ingestion-service
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: ingestion
+    dockerfile_path: Dockerfile
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+      - key: DAGSTER_HOME
+        value: /opt/dagster/dagster_home
+        scope: RUN_TIME
+
+  - name: processing-service
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: processing
+    dockerfile_path: Dockerfile
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+      - key: DAGSTER_HOME
+        value: /opt/dagster/dagster_home
+        scope: RUN_TIME
+
+  - name: summarizer-service
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: summarizer
+    dockerfile_path: Dockerfile
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+      - key: DAGSTER_HOME
+        value: /opt/dagster/dagster_home
+        scope: RUN_TIME
