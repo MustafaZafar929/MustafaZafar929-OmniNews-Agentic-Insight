@@ -46,7 +46,9 @@ def is_editorial_fit(headline: str) -> bool:
     ignore = [
         'celebrity', 'hollywood', 'kardashian', 'movie', 'actor', 'singer', 'award', 
         'red carpet', 'romance', 'dating', 'fashion', 'gossip', 'entertainment', 'tiktok', 'box office',
-        'sports', 'nba', 'nfl', 'football', 'cricket', 'score', 'half-time', 'lifestyle', 'travel'
+        'sports', 'nba', 'nfl', 'football', 'cricket', 'score', 'half-time', 'lifestyle', 'travel',
+        'hockey', 'world cup', 'tennis', 'basketball', 'boxing', 'ufc', 'wrestling', 'league',
+        'recipe', 'horoscope', 'zodiac', 'pet', 'wedding'
     ]
 
     # Special Case: Allow gossip ONLY if tied to high-stakes corruption/politics
@@ -69,34 +71,56 @@ def is_editorial_fit(headline: str) -> bool:
 def find_matching_narrative(cursor, headline):
     """
     Tries to find a narrative_id from a recent cluster (last 7 days) 
-    that matches the current headline.
+    that matches the current headline. Uses multi-keyword overlap
+    to prevent false linkage.
     """
-    # Simple keyword-based matching for now
-    # We strip common words and check for overlaps
     words = set(headline.lower().split())
-    ignore = {'the', 'a', 'in', 'on', 'at', 'for', 'with', 'and', 'over', 'reported', 'says', 'new'}
-    keywords = [w for w in words if len(w) > 3 and w not in ignore]
+    stopwords = {'the', 'a', 'in', 'on', 'at', 'for', 'with', 'and', 'over', 
+                 'reported', 'says', 'new', 'after', 'from', 'that', 'this',
+                 'has', 'have', 'been', 'will', 'more', 'than', 'about',
+                 'into', 'could', 'would', 'should', 'also', 'just', 'them',
+                 'their', 'they', 'were', 'what', 'when', 'where', 'which'}
+    keywords = [w for w in words if len(w) > 3 and w not in stopwords]
     
-    if not keywords: return str(uuid.uuid4())
+    if len(keywords) < 2:
+        return str(uuid.uuid4())
     
-    # Check for recent clusters with overlapping keywords in headline
-    # We use a simple ILIKE search for the most unique-looking keyword
-    best_keyword = max(keywords, key=len)
+    # Require at least 3 keyword overlaps (or 2 if headline is short)
+    min_overlap = min(3, len(keywords))
     
-    query = """
-        SELECT narrative_id 
+    # Build a query that checks for multiple keyword matches
+    like_clauses = " AND ".join(["summary_text ILIKE %s" for _ in keywords[:5]])
+    params = [f"%{kw}%" for kw in keywords[:5]]
+    
+    query = f"""
+        SELECT narrative_id, summary_text
         FROM cluster_summaries 
-        WHERE summary_text ILIKE %s 
+        WHERE ({like_clauses})
         AND generated_at > NOW() - INTERVAL '7 days'
         AND narrative_id IS NOT NULL
+        AND summary_text NOT LIKE 'Skipped%%'
         LIMIT 1;
     """
-    cursor.execute(query, (f"%{best_keyword}%",))
-    row = cursor.fetchone()
     
-    if row:
-        print(f"--- [Linker] Found existing narrative for '{best_keyword}': {row[0]} ---")
-        return row[0]
+    # Try with all keywords first, then relax if needed
+    for attempt in range(len(keywords[:5]), min_overlap - 1, -1):
+        attempt_clauses = " AND ".join(["summary_text ILIKE %s" for _ in keywords[:attempt]])
+        attempt_params = [f"%{kw}%" for kw in keywords[:attempt]]
+        attempt_query = f"""
+            SELECT narrative_id
+            FROM cluster_summaries 
+            WHERE ({attempt_clauses})
+            AND generated_at > NOW() - INTERVAL '7 days'
+            AND narrative_id IS NOT NULL
+            AND summary_text NOT LIKE 'Skipped%%'
+            LIMIT 1;
+        """
+        cursor.execute(attempt_query, attempt_params)
+        row = cursor.fetchone()
+        if row:
+            matched_kws = keywords[:attempt]
+            print(f"--- [Linker] Narrative match on {attempt} keywords {matched_kws}: {row[0]} ---")
+            return row[0]
     
     return str(uuid.uuid4())
 
@@ -183,6 +207,9 @@ def new_cluster_summaries():
             r_score = final_state.get("risk_score", 5)
             i_analysis = final_state.get("impact_analysis", "")
             s_metadata = final_state.get("source_analysis", [])
+            # Fallback: if LLM did not produce source analysis, build it from article data
+            if not s_metadata and source_data:
+                s_metadata = source_data  # Already has {domain, link} from articles
             k_entities = final_state.get("key_entities", {})
             
             # --- Incremental Save ---

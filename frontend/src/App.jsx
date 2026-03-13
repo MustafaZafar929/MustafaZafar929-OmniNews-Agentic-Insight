@@ -27,12 +27,20 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   </button>
 );
 
-const EntityChip = ({ icon: Icon, label, colorClass }) => (
-  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all cursor-default group`}>
-    <Icon size={12} className={colorClass} />
-    <span className="text-[10px] font-medium text-gray-300 group-hover:text-white transition-colors">{label}</span>
-  </div>
-);
+const EntityChip = ({ icon: Icon, label, colorClass }) => {
+  const displayText = typeof label === 'object' && label !== null 
+    ? (label.name || label.label || JSON.stringify(label)) 
+    : label;
+  
+  return (
+    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all cursor-default group`}>
+      <Icon size={12} className={colorClass} />
+      <span className="text-[10px] font-medium text-gray-300 group-hover:text-white transition-colors">
+        {displayText}
+      </span>
+    </div>
+  );
+};
 
 const KeyEntities = ({ entities }) => {
   if (!entities) return null;
@@ -45,9 +53,15 @@ const KeyEntities = ({ entities }) => {
         <Activity size={12} /> Key Intelligence Entities
       </h4>
       <div className="flex flex-wrap gap-2">
-        {people.slice(0, 5).map(p => <EntityChip key={p} icon={User} label={p} colorClass="text-cyan-400" />)}
-        {organizations.slice(0, 5).map(o => <EntityChip key={o} icon={Building2} label={o} colorClass="text-purple-400" />)}
-        {locations.slice(0, 5).map(l => <EntityChip key={l} icon={MapPin} label={l} colorClass="text-emerald-400" />)}
+        {people.slice(0, 5).map((p, i) => (
+          <EntityChip key={p?.name || p?.label || (typeof p === 'string' ? p : i)} icon={User} label={p} colorClass="text-cyan-400" />
+        ))}
+        {organizations.slice(0, 5).map((o, i) => (
+          <EntityChip key={o?.name || o?.label || (typeof o === 'string' ? o : i)} icon={Building2} label={o} colorClass="text-purple-400" />
+        ))}
+        {locations.slice(0, 5).map((l, i) => (
+          <EntityChip key={l?.name || l?.label || (typeof l === 'string' ? l : i)} icon={MapPin} label={l} colorClass="text-emerald-400" />
+        ))}
       </div>
     </div>
   );

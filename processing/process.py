@@ -115,14 +115,14 @@ def topic_clusters():
 
     # 3. Run Clustering (DBSCAN) with Guardrail Retry
     print(f"Clustering {len(X)} articles...")
-    eps_val = 0.55 # Relaxed from 0.4
+    eps_val = 0.3 # Relaxed from 0.4
     clustering = DBSCAN(eps=eps_val, min_samples=2, metric='cosine').fit(X)
     labels = clustering.labels_ 
     
     # --- GUARDRAIL: Automatic Retry if NO clusters found ---
     if len(set(labels) - {-1}) == 0:
         print("No clusters found at eps=0.55. Retrying with very relaxed eps=0.65.")
-        eps_val = 0.65
+        eps_val = 0.4
         clustering = DBSCAN(eps=eps_val, min_samples=2, metric='cosine').fit(X)
         labels = clustering.labels_
     # --------------------------------------------------------
