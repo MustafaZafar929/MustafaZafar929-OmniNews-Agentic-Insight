@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['omni-news.app', '158.178.236.176'],
     hmr: true,
     watch: {
       usePolling: true,
