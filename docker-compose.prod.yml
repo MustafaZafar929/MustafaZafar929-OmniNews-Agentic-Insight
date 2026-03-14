@@ -1,0 +1,104 @@
+services:
+  dagster_webserver:
+    build: ./webserver
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/opt/dagster/app
+      - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
+    command: dagster dev -w workspace.yaml -h 0.0.0.0 -p 3000
+    depends_on:
+      - ingestion_service
+      - processing_service
+      - summarizer_service
+    env_file:
+      - .env
+
+  ingestion_service:
+    build: ./ingestion
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./ingestion:/opt/dagster/app
+    env_file:
+      - .env
+
+  processing_service:
+    build: ./processing
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+    ports:
+      - "4001:4001"
+    volumes:
+      - ./processing:/opt/dagster/app
+    env_file:
+      - .env
+
+  summarizer_service:
+    build: ./summarizer
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+    ports:
+      - "4002:4002"
+    volumes:
+      - ./summarizer:/opt/dagster/app
+    env_file:
+      - .env
+
+  investigative_agent:
+    build:
+      context: ./summarizer
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./summarizer:/opt/dagster/app
+    command: python server.py
+    env_file:
+      - .env
+
+  frontend_service:
+    build: ./frontend
+    environment:
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - VITE_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - VITE_GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - .env
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - frontend_service
+      - investigative_agent

@@ -221,9 +221,9 @@ news_job = define_asset_job(name="ingest_news_job", selection=["raw_news_article
 
 news_schedule = ScheduleDefinition(
     job=news_job,
-    cron_schedule="0 8,16 * * *", 
+    cron_schedule="0 0,8,16 * * *",
     execution_timezone="Asia/Karachi",
-    name="bi_daily_ingestion"
+    name="tri_daily_ingestion"
 )
 
 defs = Definitions(

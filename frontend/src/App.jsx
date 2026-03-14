@@ -5,17 +5,89 @@ import {
   Globe, AlertTriangle, Search, Activity, LayoutDashboard,
   MessageSquare, Shield, Clock, TrendingUp, History,
   Cpu, Rocket, Zap, BookOpen, ChevronRight, User, Building2, MapPin,
-  BarChart3, ExternalLink, Swords, Scale, Sparkles
+  BarChart3, ExternalLink, Swords, Scale, Sparkles, Server, Database,
+  Workflow, Layers, Code2, Menu, X, Smartphone
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // --- Components ---
 
+const SystemArchitecture = () => {
+  const techs = [
+    { icon: Workflow, name: "Dagster", desc: "Orchestration & ETL pipelines for news ingestion", color: "text-purple-400" },
+    { icon: Database, name: "Supabase", desc: "Vector storage & Postgres with real-time subscriptions", color: "text-emerald-400" },
+    { icon: Sparkles, name: "Gemini 1.5", desc: "Deep multi-agent reasoning and narrative duals", color: "text-blue-400" },
+    { icon: Cpu, name: "Transformers.js", desc: "Local in-browser embeddings for privacy and speed", color: "text-cyan-400" },
+    { icon: Layers, name: "Multi-Agent", desc: "Collaborative agents for search, verify, and summarize", color: "text-amber-400" },
+    { icon: Smartphone, name: "React + Vite", desc: "Ultra-fast, responsive intelligence dashboard", color: "text-pink-400" }
+  ];
+
+  const steps = [
+    { title: "Ingestion", desc: "Global news sources are monitored via Tavily and direct feeds." },
+    { title: "Processing", desc: "Articles are cleaned, deduplicated, and entities are extracted." },
+    { title: "Clustering", desc: "DBSCAN algorithm groups articles into emerging narratives." },
+    { title: "Intelligence", desc: "Agents generate briefings, impact analysis, and narrative duals." }
+  ];
+
+  return (
+    <div className="space-y-12 animate-slide-up">
+      <section>
+        <h3 className="text-2xl font-bold mb-8 flex items-center gap-3">
+          <Server className="text-cyan-500" /> Technology Stack
+        </h3>
+        <div className="intelligence-grid">
+          {techs.map((t, i) => (
+            <motion.div
+              key={i}
+              whileHover={{ scale: 1.02 }}
+              className="glass-card p-6 rounded-3xl"
+            >
+              <div className={`p-3 rounded-2xl bg-white/5 w-fit mb-4 ${t.color}`}>
+                <t.icon size={24} />
+              </div>
+              <h4 className="text-lg font-bold mb-2">{t.name}</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">{t.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <section className="glass-bright rounded-[2.5rem] p-10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[100px] rounded-full" />
+        <h3 className="text-2xl font-bold mb-8 flex items-center gap-3">
+          <Workflow className="text-purple-500" /> Intelligence Workflow
+        </h3>
+        <div className="relative space-y-8">
+          {steps.map((s, i) => (
+            <div key={i} className="flex gap-6 relative">
+              {i !== steps.length - 1 && (
+                <div className="absolute left-[23px] top-12 bottom-[-32px] w-px bg-gradient-to-b from-purple-500/50 to-transparent" />
+              )}
+              <div className="flex-shrink-0 w-12 h-12 rounded-full glass flex items-center justify-center font-bold text-lg border-purple-500/30 text-purple-400 z-10">
+                {i + 1}
+              </div>
+              <div>
+                <h4 className="text-white font-bold mb-1">{s.title}</h4>
+                <p className="text-sm text-gray-400 max-w-xl">{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="bg-white/5 border border-white/5 rounded-3xl p-8 text-center">
+        <h4 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-[0.2em]">Open Source Intelligence</h4>
+        <p className="text-gray-500 text-xs">Built for global security awareness and narrative transparency.</p>
+      </div>
+    </div>
+  );
+};
+
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-500 group ${active
-      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[inset_0_0_20px_rgba(6,182,212,0.05)]'
       : 'text-gray-500 hover:text-gray-200'
       }`}
   >
@@ -26,6 +98,68 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
     {active && <motion.div layoutId="active" className="ml-auto text-cyan-500"><ChevronRight size={16} /></motion.div>}
   </button>
 );
+
+const MobileNav = ({ activeTab, setActiveTab }) => {
+  const items = [
+    { id: 'feed', icon: LayoutDashboard, label: 'Feed' },
+    { id: 'copilot', icon: MessageSquare, label: 'Copilot' },
+    { id: 'arch', icon: Server, label: 'System' }
+  ];
+
+  return (
+    <div className="md:hidden fixed bottom-6 left-6 right-6 z-50">
+      <div className="glass-bright rounded-2xl p-2 flex items-center justify-around shadow-2xl border-white/10">
+        {items.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300 ${activeTab === item.id ? 'text-cyan-400' : 'text-gray-500'}`}
+          >
+            <item.icon size={20} className={activeTab === item.id ? 'animate-pulse' : ''} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+            {activeTab === item.id && (
+              <motion.div layoutId="mob-active" className="w-1 h-1 rounded-full bg-cyan-500 mt-1" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const StickyHeader = ({ activeTab }) => {
+  const titles = {
+    feed: { main: 'Intelligence Feed', sub: 'Real-time multi-agent narrative analysis' },
+    copilot: { main: 'News Copilot', sub: 'Direct interface with Intelligence Core' },
+    arch: { main: 'System Architecture', sub: 'Technical specifications & workflow' }
+  };
+
+  return (
+    <header className="sticky top-0 z-30 pt-8 pb-6 px-6 md:px-16 bg-[#030303]/80 backdrop-blur-xl border-b border-white/5">
+      <div className="max-w-4xl">
+        <motion.div
+           key={activeTab}
+           initial={{ opacity: 0, y: -10 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          <div className="flex items-center gap-3 mb-2 md:hidden">
+            <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center neon-glow-cyan">
+              <Shield className="text-black" size={16} />
+            </div>
+            <h1 className="font-outfit font-extrabold tracking-tighter text-xl text-white">OMNINEWS</h1>
+          </div>
+          <h2 className="text-3xl md:text-5xl font-outfit font-extrabold tracking-tight text-white mb-2 md:mb-4 leading-tight gradient-text-cyan">
+            {titles[activeTab].main}
+          </h2>
+          <p className="text-sm md:text-lg text-gray-400 font-light leading-relaxed max-w-2xl">
+            {titles[activeTab].sub}
+          </p>
+        </motion.div>
+      </div>
+    </header>
+  );
+};
 
 const EntityChip = ({ icon: Icon, label, colorClass }) => {
   const displayText = typeof label === 'object' && label !== null 
@@ -520,7 +654,8 @@ const Copilot = () => {
       const data = await chatWithCopilot(input);
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Error communicating with intelligence backend." }]);
+      console.error("Copilot UI Error:", err);
+      setMessages(prev => [...prev, { role: 'assistant', content: `**Intelligence Sync Error:** ${err.message || "Unknown communication failure"}\n\nCheck browser console for details.` }]);
     }
     setLoading(false);
   };
@@ -621,11 +756,11 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-[#030303] text-gray-100 flex overflow-hidden">
-      {/* Sidebar - Fixed Glass Panel */}
-      <aside className="w-72 border-r border-white/5 flex flex-col p-8 glass z-20">
+    <div className="h-screen w-full bg-[#030303] text-gray-100 flex overflow-hidden selection:bg-cyan-500/30">
+      {/* Sidebar - Desktop Only */}
+      <aside className="hidden md:flex w-80 h-full border-r border-white/5 flex-col p-8 glass z-20 shrink-0">
         <div className="flex items-center gap-4 mb-12 px-2 group cursor-pointer">
-          <div className="w-12 h-12 bg-cyan-500 rounded-2xl flex items-center justify-center neon-border transition-transform transform group-hover:rotate-12 duration-500">
+          <div className="w-12 h-12 bg-cyan-500 rounded-2xl flex items-center justify-center neon-glow-cyan transition-transform transform group-hover:rotate-12 duration-500">
             <Shield className="text-black" size={28} />
           </div>
           <div>
@@ -634,10 +769,10 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="space-y-2 flex-1">
+        <nav className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
           <SidebarItem
             icon={LayoutDashboard}
-            label="Daily Feed"
+            label="Intelligence Feed"
             active={activeTab === 'feed'}
             onClick={() => setActiveTab('feed')}
           />
@@ -647,56 +782,70 @@ export default function App() {
             active={activeTab === 'copilot'}
             onClick={() => setActiveTab('copilot')}
           />
+          <SidebarItem
+            icon={Server}
+            label="System Architecture"
+            active={activeTab === 'arch'}
+            onClick={() => setActiveTab('arch')}
+          />
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/5">
-          <div className="flex items-center gap-3 px-2 opacity-50">
-            <Activity size={16} />
-            <span className="text-xs font-mono">System Active</span>
+          <div className="flex items-center gap-3 px-2 opacity-30 hover:opacity-100 transition-opacity">
+            <Activity size={16} className="text-cyan-500" />
+            <span className="text-[10px] font-mono uppercase tracking-widest leading-none">Quantum Link Active</span>
           </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-16 custom-scrollbar relative z-10">
-        <header className="mb-20 max-w-4xl">
-          <motion.h2
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-5xl font-outfit font-extrabold tracking-tight text-white mb-4 leading-tight"
-          >
-            {activeTab === 'feed' ? 'Intelligence Feed' : 'Agentic News Copilot'}
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-lg text-gray-400 font-light leading-relaxed max-w-2xl"
-          >
-            {activeTab === 'feed'
-              ? 'Real-time multi-agent analysis of global events, verified through diverse sources and historical context.'
-              : 'Direct interface with the OmniNews Intelligence Core. Query the entire knowledge graph.'}
-          </motion.p>
-        </header>
+      <main className="flex-1 h-full overflow-y-auto custom-scrollbar relative z-10 flex flex-col">
+        {/* Subtle Background Elements */}
+        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none z-0" />
+        <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/5 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2 pointer-events-none z-0" />
 
-        <section className="max-w-4xl">
-          {activeTab === 'feed' ? (
-            loading ? (
-              <div className="space-y-6">
-                {[1, 2, 3].map(i => <div key={i} className="glass-card h-48 rounded-2xl animate-pulse" />)}
-              </div>
-            ) : briefings.length > 0 ? (
-              briefings.map(b => <BriefingCard key={b.cluster_id} briefing={b} />)
-            ) : (
-              <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
-                <p className="text-gray-500">No briefings found. Ensure the ingestion service is active.</p>
-              </div>
-            )
-          ) : (
-            <Copilot />
-          )}
+        <StickyHeader activeTab={activeTab} />
+
+        <section className="flex-1 px-6 md:px-16 pb-32 md:pb-16 pt-8 z-10">
+          <div className="max-w-4xl">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
+                {activeTab === 'feed' ? (
+                  loading ? (
+                    <div className="space-y-8">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="glass border-white/5 h-64 rounded-[2rem] animate-pulse" />
+                      ))}
+                    </div>
+                  ) : briefings.length > 0 ? (
+                    <div className="space-y-8 pb-12">
+                      {briefings.map(b => <BriefingCard key={b.cluster_id} briefing={b} />)}
+                    </div>
+                  ) : (
+                    <div className="text-center py-32 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10">
+                      <Zap size={48} className="mx-auto text-gray-700 mb-4" />
+                      <p className="text-gray-500 font-medium">No active narratives detected.<br/><span className="text-xs">Ensure ingestion service is running.</span></p>
+                    </div>
+                  )
+                ) : activeTab === 'copilot' ? (
+                  <Copilot />
+                ) : (
+                  <SystemArchitecture />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </section>
       </main>
+
+      {/* Mobile Navigation */}
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 }

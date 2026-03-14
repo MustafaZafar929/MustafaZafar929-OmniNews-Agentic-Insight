@@ -18,6 +18,8 @@ services:
       - processing_service
       - summarizer_service
     command: dagster dev -w workspace.yaml -h 0.0.0.0 -p 3000
+    env_file:
+      - .env
 
   ingestion_service:
     build: ./ingestion
@@ -34,7 +36,8 @@ services:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
     ports:
       - "4000"
-
+    env_file:
+      - .env
 
   processing_service:
     build: ./processing
@@ -51,7 +54,8 @@ services:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
     ports:
       - "4000"
-
+    env_file:
+      - .env
 
   summarizer_service:
     build: ./summarizer
@@ -71,6 +75,8 @@ services:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
     ports:
       - "4002"
+    env_file:
+      - .env
 
   investigative_agent:
     build: ./summarizer
@@ -88,14 +94,16 @@ services:
     working_dir: /app
     depends_on:
       - ingestion_service
-
+    env_file:
+      - .env
 
   frontend_service:
     build: ./frontend
     environment:
-      - VITE_SUPABASE_URL=https://ngdivxoeezwytiqubgry.supabase.co
-      - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nZGl2eG9lZXp3eXRpcXViZ3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3ODI4NDEsImV4cCI6MjA4NTM1ODg0MX0.1dDlEaUg8Wh3ewP-86mKtUOMAz-skU3zAKo-r7iQv-s
-      - VITE_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      - VITE_OPENROUTER_API_KEY=${VITE_OPENROUTER_API_KEY}
+      - VITE_GOOGLE_AI_STUDIO_API_KEY=${VITE_GOOGLE_AI_STUDIO_API_KEY}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -103,3 +111,5 @@ services:
       - "5173:5173"
     depends_on:
       - ingestion_service
+    env_file:
+      - .env
