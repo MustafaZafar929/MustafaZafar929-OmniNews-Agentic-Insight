@@ -107,7 +107,7 @@ const MobileNav = ({ activeTab, setActiveTab }) => {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-6 left-6 right-6 z-50">
+    <div className="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-md">
       <div className="glass-bright rounded-2xl p-2 flex items-center justify-around shadow-2xl border-white/10">
         {items.map(item => (
           <button
@@ -135,8 +135,8 @@ const StickyHeader = ({ activeTab }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 pt-8 pb-6 px-6 md:px-16 bg-[#030303]/80 backdrop-blur-xl border-b border-white/5">
-      <div className="max-w-4xl">
+    <header className="sticky top-0 z-30 pt-8 pb-6 px-4 md:px-16 bg-[#030303]/80 backdrop-blur-xl border-b border-white/5">
+      <div className="max-w-4xl mx-auto md:mx-0">
         <motion.div
            key={activeTab}
            initial={{ opacity: 0, y: -10 }}
