@@ -76,12 +76,13 @@ services:
       - .env
 
   frontend_service:
-    build: ./frontend
-    environment:
-      - VITE_SUPABASE_URL=${SUPABASE_URL}
-      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - VITE_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - VITE_GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+    build:
+      context: ./frontend
+      args:
+        - VITE_SUPABASE_URL=${SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+        - VITE_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+        - VITE_GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
     ports:
       - "80"
     env_file:
