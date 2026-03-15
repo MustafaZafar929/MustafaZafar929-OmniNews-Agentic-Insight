@@ -83,10 +83,7 @@ services:
       - VITE_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - VITE_GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "80"
     env_file:
       - .env
 

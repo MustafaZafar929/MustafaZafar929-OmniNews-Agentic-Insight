@@ -24,7 +24,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, .font-outfit {
+h1,
+h2,
+h3,
+h4,
+.font-outfit {
   font-family: 'Outfit', sans-serif;
 }
 
@@ -98,8 +102,15 @@ h1, h2, h3, h4, .font-outfit {
 
 /* Animation Utilities */
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-slide-up {
@@ -111,4 +122,4 @@ h1, h2, h3, h4, .font-outfit {
   background: linear-gradient(135deg, #fff 0%, #06b6d4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-}
+}
