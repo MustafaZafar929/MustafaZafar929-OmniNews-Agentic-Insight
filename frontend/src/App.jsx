@@ -1,5 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+
+// Utility to clean any remaining control tags from LLM output (Fail-safe)
+const cleanSummaryText = (text) => {
+  if (!text) return "";
+  let cleaned = text;
+  
+  // 1. Strip JSON blocks even if closing tags are missing (greedy match)
+  cleaned = cleaned.replace(/\[SOURCES_JSON\][\s\S]*?(\[\/SOURCES_JSON\]|(?=\[ENTITIES_JSON\])|$)/gi, "");
+  cleaned = cleaned.replace(/\[ENTITIES_JSON\][\s\S]*?(\[\/ENTITIES_JSON\]|$)/gi, "");
+  
+  // 2. Strip single-line tags
+  cleaned = cleaned.replace(/\[RISK_SCORE:.*?\]/gi, "");
+  cleaned = cleaned.replace(/\[IMPACT:.*?\]/gi, "");
+  
+  // 3. Catch-all for any [UPPERCASE_TAG]
+  cleaned = cleaned.replace(/\[[A-Z_]{3,24}(:.*?)?\]/gi, "");
+  
+  // 4. Filter out lines that are now empty or just markdown headers (## )
+  const lines = cleaned.split('\n');
+  const filteredLines = lines.filter(line => {
+    const contentOnly = line.replace(/^[#\s\-\*]+/, '').trim();
+    return contentOnly.length > 0 || line.trim() === "";
+  });
+  
+  return filteredLines.join('\n').trim();
+};
+
 import { getBriefings, getLogs, getNarrativeBriefings, launchInvestigation, launchDebate, chatWithCopilot, supabase } from './api';
 import {
   Globe, AlertTriangle, Search, Activity, LayoutDashboard,
@@ -8,7 +36,6 @@ import {
   BarChart3, ExternalLink, Swords, Scale, Sparkles, Server, Database,
   Workflow, Layers, Code2, Menu, X, Smartphone
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 
 // --- Components ---
 
@@ -256,24 +283,35 @@ const MediaBiasSpectrum = ({ sources }) => {
 
       {/* Source Chips */}
       <div className="flex flex-wrap gap-2 mt-4">
-        {sources.sort((a, b) => {
+        {sources.slice().sort((a, b) => {
           const order = { left: 1, center: 2, right: 3 };
-          return order[a.bias] - order[b.bias];
-        }).map((source, i) => (
-          <a
-            key={i}
-            href={source.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group hover:scale-105"
-          >
-            <div className={`w-1.5 h-1.5 rounded-full ${source.bias === 'left' ? 'bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]' :
-              source.bias === 'right' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' : 'bg-gray-500'
-              }`} />
-            <span className="text-[10px] font-medium text-gray-400 group-hover:text-white capitalize tracking-tight">{source.domain}</span>
-            <ExternalLink size={10} className="text-gray-600 group-hover:text-cyan-500 transition-colors" />
-          </a>
-        ))}
+          const getOrder = (bias) => {
+            const b = (bias || 'center').toLowerCase();
+            if (b.includes('left')) return 1;
+            if (b.includes('right')) return 3;
+            return 2;
+          };
+          return getOrder(a.bias) - getOrder(b.bias);
+        }).map((source, i) => {
+          const sourceLabel = source.domain || source.name || source.source || source.label || "Source";
+          const sourceLink = source.link || source.url || "#";
+          
+          return (
+            <a
+              key={i}
+              href={sourceLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group hover:scale-105"
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${source.bias?.toLowerCase().includes('left') ? 'bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]' :
+                source.bias?.toLowerCase().includes('right') ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' : 'bg-gray-500'
+                }`} />
+              <span className="text-[10px] font-medium text-gray-400 group-hover:text-white capitalize tracking-tight">{sourceLabel}</span>
+              <ExternalLink size={10} className="text-gray-600 group-hover:text-cyan-500 transition-colors" />
+            </a>
+          );
+        })}
       </div>
     </div>
   );
@@ -513,7 +551,7 @@ const BriefingCard = ({ briefing }) => {
             strong: ({ node, ...props }) => <strong className="text-white font-semibold" {...props} />
           }}
         >
-          {briefing.summary_text}
+          {cleanSummaryText(briefing.summary_text)}
         </ReactMarkdown>
       </div>
 

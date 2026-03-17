@@ -197,6 +197,8 @@ def reporter(state: AgentState):
     The Reporter: Writes the final markdown briefing.
     """
     print("--- Reporter ---")
+    import re
+    import json
     
     notes = "\n".join(state.get("research_notes", []))
     headline = state["headline"]
@@ -224,8 +226,8 @@ def reporter(state: AgentState):
     FORMATTING:
     - [RISK_SCORE: X]
     - [IMPACT: Market and Stability analysis]
-    - [SOURCES_JSON] ... [/SOURCES_JSON]
-    - [ENTITIES_JSON] ... [/ENTITIES_JSON]
+    - [SOURCES_JSON] {{"sources": [ {{"domain": "...", "bias": "...", "link": "..."}}, ... ] }} [/SOURCES_JSON]
+    - [ENTITIES_JSON] {{"people": [...], "organizations": [...], "locations": [...]}} [/ENTITIES_JSON]
     - Full Markdown starts with # {headline}.
     """
     
@@ -233,43 +235,84 @@ def reporter(state: AgentState):
         response_obj, token_info = safe_llm_invoke([HumanMessage(content=prompt or "Write report")])
         content = response_obj.content
         
+        # Helper to extract tags using regex for robustness
+        def extract_tag(text, tag_name):
+            pattern = rf"\[{tag_name}[:\s]*([^\]]*)\]"
+            match = re.search(pattern, text)
+            return match.group(1).strip() if match else None
+
+        def extract_json_block(text, tag_name):
+            start_tag = f"[{tag_name}]"
+            end_tag = f"[/{tag_name}]"
+            if start_tag in text and end_tag in text:
+                block = text.split(start_tag)[1].split(end_tag)[0].strip()
+                # Clean markdown code blocks if any
+                block = re.sub(r'```(?:json)?\s*', '', block)
+                block = re.sub(r'\s*```', '', block).strip()
+                return block
+            return None
+
         # Parse Risk Score
         risk_score = 5 # Default
-        if "[RISK_SCORE:" in content:
+        rs_match = extract_tag(content, "RISK_SCORE")
+        if rs_match:
             try:
-                risk_score = int(content.split("[RISK_SCORE:")[1].split("]")[0].strip())
+                risk_score = int(rs_match)
             except: pass
             
         # Parse Impact
         impact_analysis = "Regional security/market implications expected."
-        if "[IMPACT:" in content:
-            try:
-                impact_analysis = content.split("[IMPACT:")[1].split("]")[0].strip()
-            except: pass
+        impact_match = extract_tag(content, "IMPACT")
+        if impact_match:
+            impact_analysis = impact_match
             
         # Parse Source Analysis
         source_analysis = []
-        if "[SOURCES_JSON]" in content:
+        source_block = extract_json_block(content, "SOURCES_JSON")
+        if source_block:
             try:
-                import json
-                json_str = content.split("[SOURCES_JSON]")[1].split("[/SOURCES_JSON]")[0].strip()
-                source_analysis = json.loads(json_str).get("sources", [])
-            except: pass
+                parsed = json.loads(source_block)
+                if isinstance(parsed, dict):
+                    source_analysis = parsed.get("sources", [])
+                elif isinstance(parsed, list):
+                    source_analysis = parsed
+            except Exception as e:
+                print(f"⚠️ Failed to parse SOURCES_JSON: {e}")
             
         # Parse Entities
         key_entities = {"people": [], "organizations": [], "locations": []}
-        if "[ENTITIES_JSON]" in content:
+        entities_block = extract_json_block(content, "ENTITIES_JSON")
+        if entities_block:
             try:
-                import json
-                json_str = content.split("[ENTITIES_JSON]")[1].split("[/ENTITIES_JSON]")[0].strip()
-                key_entities = json.loads(json_str)
-            except: pass
+                key_entities = json.loads(entities_block)
+            except Exception as e:
+                print(f"⚠️ Failed to parse ENTITIES_JSON: {e}")
 
-        # Clean Final Report (Remove tags)
-        final_report = content
-        if "[RISK_SCORE:" in final_report:
-            final_report = final_report.split("#", 1)[-1]
-            final_report = "# " + final_report.strip()
+        # Clean Final Report (Aggressive v3 Regex)
+        cleaned = content
+        
+        # 1. Strip JSON blocks even if closing tags are missing (greedy match)
+        cleaned = re.sub(r'\[SOURCES_JSON\][\s\S]*?(\[\/SOURCES_JSON\]|(?=\[ENTITIES_JSON\])|$)', '', cleaned, flags=re.IGNORECASE|re.DOTALL)
+        cleaned = re.sub(r'\[ENTITIES_JSON\][\s\S]*?(\[\/ENTITIES_JSON\]|$)', '', cleaned, flags=re.IGNORECASE|re.DOTALL)
+        
+        # 2. Strip single-line tags
+        cleaned = re.sub(r'\[RISK_SCORE:.*?\]', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\[IMPACT:.*?\]', '', cleaned, flags=re.IGNORECASE)
+        
+        # 3. Catch-all for any [UPPERCASE_TAG]
+        cleaned = re.sub(r'\[[A-Z_]{3,24}(:.*?)?\]', '', cleaned, flags=re.IGNORECASE)
+        
+        # 4. Filter out lines that are now empty or just markdown headers (## )
+        lines = cleaned.split('\n')
+        filtered_lines = []
+        for line in lines:
+            content_only = re.sub(r'^[#\s\-\*]+', '', line).strip()
+            if content_only:
+                filtered_lines.append(line)
+            elif line.strip() == "":
+                filtered_lines.append("")
+        
+        final_report = '\n'.join(filtered_lines).strip()
 
         log_agent_step(state.get("cluster_id"), "reporter", 100, f"Score: {risk_score}", f"Reporting Finished. {token_info}", run_id=state.get("run_id"))
         
