@@ -1,30 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-// Utility to clean any remaining control tags from LLM output (Fail-safe)
 const cleanSummaryText = (text) => {
   if (!text) return "";
   let cleaned = text;
-  
-  // 1. Strip JSON blocks even if closing tags are missing (greedy match)
   cleaned = cleaned.replace(/\[SOURCES_JSON\][\s\S]*?(\[\/SOURCES_JSON\]|(?=\[ENTITIES_JSON\])|$)/gi, "");
   cleaned = cleaned.replace(/\[ENTITIES_JSON\][\s\S]*?(\[\/ENTITIES_JSON\]|$)/gi, "");
-  
-  // 2. Strip single-line tags
   cleaned = cleaned.replace(/\[RISK_SCORE:.*?\]/gi, "");
   cleaned = cleaned.replace(/\[IMPACT:.*?\]/gi, "");
-  
-  // 3. Catch-all for any [UPPERCASE_TAG]
   cleaned = cleaned.replace(/\[[A-Z_]{3,24}(:.*?)?\]/gi, "");
-  
-  // 4. Filter out lines that are now empty or just markdown headers (## )
   const lines = cleaned.split('\n');
   const filteredLines = lines.filter(line => {
     const contentOnly = line.replace(/^[#\s\-\*]+/, '').trim();
     return contentOnly.length > 0 || line.trim() === "";
   });
-  
   return filteredLines.join('\n').trim();
 };
 
@@ -34,126 +24,191 @@ import {
   MessageSquare, Shield, Clock, TrendingUp, History,
   Rocket, Zap, BookOpen, ChevronRight, User, Building2, MapPin,
   BarChart3, ExternalLink, Swords, Scale, Sparkles,
-  Menu, X
+  Menu, X, Radio, Cpu, ArrowRight, Hash, ChevronDown, Rss
 } from 'lucide-react';
 
-// --- Components ---
-
-
-const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-500 group ${active
-      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[inset_0_0_20px_rgba(6,182,212,0.05)]'
-      : 'text-gray-500 hover:text-gray-200'
-      }`}
-  >
-    <div className={`p-2 rounded-lg transition-all duration-500 ${active ? 'bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'group-hover:bg-white/5'}`}>
-      <Icon size={18} />
-    </div>
-    <span className="font-medium text-sm tracking-wide">{label}</span>
-    {active && <motion.div layoutId="active" className="ml-auto text-cyan-500"><ChevronRight size={16} /></motion.div>}
-  </button>
-);
-
-const MobileNav = ({ activeTab, setActiveTab }) => {
-  const items = [
-    { id: 'feed', icon: LayoutDashboard, label: 'Feed' },
-    { id: 'copilot', icon: MessageSquare, label: 'Copilot' }
-  ];
+// ─── Ticker Bar ───────────────────────────────────────────────
+const TickerBar = ({ briefings }) => {
+  const items = briefings.slice(0, 8);
+  if (!items.length) return null;
+  const text = items.map(b => {
+    const raw = b.summary_text?.split('\n').find(l => l.replace(/^[#\s\-\*]+/, '').trim().length > 4) || b.summary_text?.split('\n')[0] || 'Briefing update';
+    return cleanSummaryText(raw).replace(/^#+\s*/, '').replace(/\*\*/g, '').trim() || 'Briefing update';
+  });
 
   return (
-    <div className="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-md">
-      <div className="glass-bright rounded-2xl p-2 flex items-center justify-around shadow-2xl border-white/10">
-        {items.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300 ${activeTab === item.id ? 'text-cyan-400' : 'text-gray-500'}`}
-          >
-            <item.icon size={20} className={activeTab === item.id ? 'animate-pulse' : ''} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
-            {activeTab === item.id && (
-              <motion.div layoutId="mob-active" className="w-1 h-1 rounded-full bg-cyan-500 mt-1" />
-            )}
-          </button>
-        ))}
+    <div className="bg-[#e8e0d0] border-b border-[#c8bfaf] overflow-hidden flex items-stretch h-8">
+      <div className="bg-[#1a1a1a] text-[#e8e0d0] px-4 flex items-center shrink-0 z-10">
+        <span className="text-[9px] font-bold tracking-[0.25em] uppercase font-mono flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+          LIVE
+        </span>
+      </div>
+      <div className="relative overflow-hidden flex-1">
+        <motion.div
+          className="flex items-center gap-0 absolute whitespace-nowrap"
+          animate={{ x: ['0%', '-50%'] }}
+          transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
+        >
+          {[...text, ...text].map((t, i) => (
+            <span key={i} className="text-[10px] font-medium text-[#2a2a2a] px-6 tracking-wide border-r border-[#c8bfaf] h-8 flex items-center font-mono">
+              {t}
+            </span>
+          ))}
+        </motion.div>
       </div>
     </div>
   );
 };
 
-const StickyHeader = ({ activeTab }) => {
-  const titles = {
-    feed: { main: 'Intelligence Feed', sub: 'Real-time multi-agent narrative analysis' },
-    copilot: { main: 'News Copilot', sub: 'Direct interface with Intelligence Core' }
-  };
+// ─── Sidebar ──────────────────────────────────────────────────
+const SidebarItem = ({ icon: Icon, label, active, onClick, count }) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-200 text-left border-l-2 ${active
+      ? 'border-l-[#1a1a1a] bg-[#1a1a1a]/5 text-[#1a1a1a]'
+      : 'border-l-transparent text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/3'
+      }`}
+  >
+    <Icon size={15} strokeWidth={active ? 2.5 : 1.8} />
+    <span className={`text-[11px] tracking-[0.05em] uppercase font-bold flex-1 ${active ? 'font-black' : ''}`}>{label}</span>
+    {count !== undefined && (
+      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${active ? 'bg-[#1a1a1a] text-[#e8e0d0]' : 'bg-[#1a1a1a]/10 text-[#6b6b6b]'}`}>
+        {count}
+      </span>
+    )}
+  </button>
+);
+
+const MobileNav = ({ activeTab, setActiveTab }) => (
+  <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#f2ede5] border-t border-[#c8bfaf]">
+    <div className="flex">
+      {[
+        { id: 'feed', icon: Rss, label: 'Feed' },
+        { id: 'copilot', icon: MessageSquare, label: 'Copilot' },
+      ].map(item => (
+        <button
+          key={item.id}
+          onClick={() => setActiveTab(item.id)}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 text-[9px] tracking-[0.15em] uppercase font-bold transition-colors ${activeTab === item.id ? 'text-[#1a1a1a]' : 'text-[#9a9a9a]'
+            }`}
+        >
+          <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 1.5} />
+          {item.label}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// ─── Masthead / Header ────────────────────────────────────────
+const Masthead = ({ briefings, activeTab }) => {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <header className="sticky top-0 z-30 pt-8 pb-6 px-4 md:px-16 bg-[#030303]/80 backdrop-blur-xl border-b border-white/5">
-      <div className="max-w-4xl mx-auto md:mx-0">
-        <motion.div
-           key={activeTab}
-           initial={{ opacity: 0, y: -10 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ duration: 0.4, ease: "easeOut" }}
-        >
-          <div className="flex items-center gap-3 mb-2 md:hidden">
-            <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center neon-glow-cyan">
-              <Shield className="text-black" size={16} />
-            </div>
-            <h1 className="font-outfit font-extrabold tracking-tighter text-xl text-white">OMNINEWS</h1>
-          </div>
-          <h2 className="text-3xl md:text-5xl font-outfit font-extrabold tracking-tight text-white mb-2 md:mb-4 leading-tight gradient-text-cyan">
-            {titles[activeTab]?.main || titles.feed.main}
-          </h2>
-          <p className="text-sm md:text-lg text-gray-400 font-light leading-relaxed max-w-2xl">
-            {titles[activeTab]?.sub || titles.feed.sub}
+    <header className="border-b border-[#1a1a1a]/20 bg-[#f2ede5]">
+      {/* Top rule */}
+      <div className="h-[3px] bg-[#1a1a1a]" />
+
+      {/* Masthead row */}
+      <div className="px-6 md:px-10 py-5 flex items-end justify-between border-b border-[#c8bfaf]">
+        <div>
+          <h1 className="font-['Playfair_Display',_serif] text-4xl md:text-5xl font-black tracking-tight text-[#1a1a1a] leading-none">
+            OMNINEWS
+          </h1>
+          <p className="text-[9px] font-bold tracking-[0.35em] text-[#6b6b6b] uppercase mt-1.5 font-mono">
+            Intelligence · Analysis · Synthesis
           </p>
-        </motion.div>
+        </div>
+        <div className="hidden md:flex flex-col items-end gap-1">
+          <span className="text-[9px] font-mono text-[#6b6b6b] tracking-widest uppercase">{dateStr}</span>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+            <span className="text-[9px] font-mono text-[#6b6b6b] tracking-widest">LIVE FEED ACTIVE</span>
+          </div>
+        </div>
       </div>
+
+      {/* Section nav */}
+      <div className="px-6 md:px-10 flex items-center gap-0 border-b border-[#c8bfaf] overflow-x-auto">
+        <div className="flex items-center gap-6 py-2.5">
+          <span className={`text-[10px] font-bold tracking-[0.2em] uppercase cursor-default pb-0.5 ${activeTab === 'feed' ? 'text-[#1a1a1a] border-b-2 border-[#1a1a1a]' : 'text-[#9a9a9a]'}`}>
+            Intelligence Feed
+          </span>
+          <span className={`text-[10px] font-bold tracking-[0.2em] uppercase cursor-default pb-0.5 ${activeTab === 'copilot' ? 'text-[#1a1a1a] border-b-2 border-[#1a1a1a]' : 'text-[#9a9a9a]'}`}>
+            Copilot
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-[9px] font-mono text-[#9a9a9a] hidden md:block">
+            {briefings.length} briefings indexed
+          </span>
+        </div>
+      </div>
+
+      <TickerBar briefings={briefings} />
     </header>
   );
 };
 
-const EntityChip = ({ icon: Icon, label, colorClass }) => {
-  const displayText = typeof label === 'object' && label !== null 
-    ? (label.name || label.label || JSON.stringify(label)) 
-    : label;
-  
+// ─── Risk Badge ───────────────────────────────────────────────
+const RiskBadge = ({ score }) => {
+  const level = score >= 7 ? { label: 'CRITICAL', bg: 'bg-red-600', text: 'text-white' }
+    : score >= 4 ? { label: 'ELEVATED', bg: 'bg-amber-500', text: 'text-white' }
+      : { label: 'STABLE', bg: 'bg-emerald-700', text: 'text-white' };
+
   return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all cursor-default group`}>
-      <Icon size={12} className={colorClass} />
-      <span className="text-[10px] font-medium text-gray-300 group-hover:text-white transition-colors">
-        {displayText}
-      </span>
-    </div>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[8px] font-black tracking-[0.3em] uppercase font-mono ${level.bg} ${level.text}`}>
+      <span className="w-1 h-1 rounded-full bg-current opacity-80 animate-pulse" />
+      {level.label} {score}/10
+    </span>
+  );
+};
+
+// ─── Entity Chips ─────────────────────────────────────────────
+const EntityChip = ({ icon: Icon, label }) => {
+  const displayText = typeof label === 'object' && label !== null
+    ? (label.name || label.label || JSON.stringify(label))
+    : label;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#1a1a1a]/5 border border-[#1a1a1a]/15 text-[10px] font-medium text-[#3a3a3a] hover:bg-[#1a1a1a]/10 transition-colors cursor-default">
+      <Icon size={9} className="opacity-60" />
+      {displayText}
+    </span>
   );
 };
 
 const KeyEntities = ({ entities }) => {
   if (!entities) return null;
   const { people = [], organizations = [], locations = [] } = entities;
-  if (people.length === 0 && organizations.length === 0 && locations.length === 0) return null;
+  if (!people.length && !organizations.length && !locations.length) return null;
 
   return (
-    <div className="mb-6">
-      <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
-        <Activity size={12} /> Key Intelligence Entities
-      </h4>
-      <div className="flex flex-wrap gap-2">
-        {people.slice(0, 5).map((p, i) => (
-          <EntityChip key={p?.name || p?.label || (typeof p === 'string' ? p : i)} icon={User} label={p} colorClass="text-cyan-400" />
+    <div className="mb-6 pt-4 border-t border-[#1a1a1a]/10">
+      <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] mb-2 font-mono">Key Entities</p>
+      <div className="flex flex-wrap gap-1.5">
+        {people.slice(0, 4).map((p, i) => (
+          <EntityChip key={i} icon={User} label={p} />
         ))}
-        {organizations.slice(0, 5).map((o, i) => (
-          <EntityChip key={o?.name || o?.label || (typeof o === 'string' ? o : i)} icon={Building2} label={o} colorClass="text-purple-400" />
+        {organizations.slice(0, 4).map((o, i) => (
+          <EntityChip key={i} icon={Building2} label={o} />
         ))}
-        {locations.slice(0, 5).map((l, i) => (
-          <EntityChip key={l?.name || l?.label || (typeof l === 'string' ? l : i)} icon={MapPin} label={l} colorClass="text-emerald-400" />
+        {locations.slice(0, 4).map((l, i) => (
+          <EntityChip key={i} icon={MapPin} label={l} />
         ))}
       </div>
     </div>
   );
+};
+
+// ─── Media Bias ───────────────────────────────────────────────
+const getBiasCategory = (bias) => {
+  if (!bias) return 'center';
+  const b = bias.toLowerCase();
+  if (b.includes('left')) return 'left';
+  if (b.includes('right')) return 'right';
+  return 'center';
 };
 
 const MediaBiasSpectrum = ({ sources }) => {
@@ -161,9 +216,7 @@ const MediaBiasSpectrum = ({ sources }) => {
 
   const biasCounts = { left: 0, center: 0, right: 0 };
   sources.forEach(s => {
-    const b = (s.bias || 'center').toLowerCase();
-    if (biasCounts[b] !== undefined) biasCounts[b]++;
-    else biasCounts.center++;
+    biasCounts[getBiasCategory(s.bias)]++;
   });
 
   const total = sources.length;
@@ -171,72 +224,48 @@ const MediaBiasSpectrum = ({ sources }) => {
   const centerPct = (biasCounts.center / total) * 100;
   const rightPct = (biasCounts.right / total) * 100;
 
+  // If everything defaulted to center but we have sources, show an even split indicator
+  const allCenter = leftPct === 0 && rightPct === 0;
+
   return (
-    <div className="mt-6 pt-6 border-t border-white/5">
-      <div className="flex justify-between items-center mb-4">
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/80 flex items-center gap-2">
-          <BarChart3 size={14} className="text-cyan-400" /> Media Narrative Landscape
-        </h4>
-        <div className="flex gap-4 text-[9px] font-bold font-mono">
-          <span className="flex items-center gap-1.5 text-blue-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" /> LEFT
-          </span>
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-gray-500" /> CENTER
-          </span>
-          <span className="flex items-center gap-1.5 text-red-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> RIGHT
-          </span>
+    <div className="pt-5 mt-5 border-t border-[#1a1a1a]/10">
+      <div className="flex justify-between items-center mb-3">
+        <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono">Media Spectrum</p>
+        <div className="flex gap-4 text-[8px] font-mono font-bold">
+          <span className={biasCounts.left > 0 ? 'text-blue-700' : 'text-[#c8bfaf]'}>L {biasCounts.left}</span>
+          <span className={biasCounts.center > 0 ? 'text-[#6b6b6b]' : 'text-[#c8bfaf]'}>C {biasCounts.center}</span>
+          <span className={biasCounts.right > 0 ? 'text-red-700' : 'text-[#c8bfaf]'}>R {biasCounts.right}</span>
         </div>
       </div>
 
-      {/* Premium Spectrum Bar */}
-      <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden flex shadow-inner">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${leftPct}%` }}
-          className="h-full bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-        />
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${centerPct}%` }}
-          className="h-full bg-gray-500/30"
-        />
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${rightPct}%` }}
-          className="h-full bg-gradient-to-l from-red-600 to-red-400 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
-        />
+      {/* Spectrum bar — always show a visible track */}
+      <div className="h-1.5 w-full bg-[#ddd8ce] flex overflow-hidden">
+        {allCenter ? (
+          <div className="h-full w-full bg-[#a8a09a]" />
+        ) : (
+          <>
+            <motion.div initial={{ width: 0 }} animate={{ width: `${leftPct}%` }} transition={{ duration: 0.8 }} className="h-full bg-blue-600 shrink-0" />
+            <motion.div initial={{ width: 0 }} animate={{ width: `${centerPct}%` }} transition={{ duration: 0.8, delay: 0.1 }} className="h-full bg-[#a8a09a] shrink-0" />
+            <motion.div initial={{ width: 0 }} animate={{ width: `${rightPct}%` }} transition={{ duration: 0.8, delay: 0.2 }} className="h-full bg-red-600 shrink-0" />
+          </>
+        )}
       </div>
 
-      {/* Source Chips */}
-      <div className="flex flex-wrap gap-2 mt-4">
-        {sources.slice().sort((a, b) => {
-          const order = { left: 1, center: 2, right: 3 };
-          const getOrder = (bias) => {
-            const b = (bias || 'center').toLowerCase();
-            if (b.includes('left')) return 1;
-            if (b.includes('right')) return 3;
-            return 2;
-          };
-          return getOrder(a.bias) - getOrder(b.bias);
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {sources.slice(0, 6).sort((a, b) => {
+          const order = { left: 0, center: 1, right: 2 };
+          return order[getBiasCategory(a.bias)] - order[getBiasCategory(b.bias)];
         }).map((source, i) => {
-          const sourceLabel = source.domain || source.name || source.source || source.label || "Source";
-          const sourceLink = source.link || source.url || "#";
-          
+          const label = source.domain || source.name || source.source || "Source";
+          const link = source.link || source.url || "#";
+          const cat = getBiasCategory(source.bias);
+          const dot = cat === 'left' ? 'bg-blue-600' : cat === 'right' ? 'bg-red-600' : 'bg-[#a8a09a]';
           return (
-            <a
-              key={i}
-              href={sourceLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group hover:scale-105"
-            >
-              <div className={`w-1.5 h-1.5 rounded-full ${source.bias?.toLowerCase().includes('left') ? 'bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]' :
-                source.bias?.toLowerCase().includes('right') ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' : 'bg-gray-500'
-                }`} />
-              <span className="text-[10px] font-medium text-gray-400 group-hover:text-white capitalize tracking-tight">{sourceLabel}</span>
-              <ExternalLink size={10} className="text-gray-600 group-hover:text-cyan-500 transition-colors" />
+            <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[#1a1a1a]/15 text-[9px] font-mono text-[#6b6b6b] hover:text-[#1a1a1a] hover:border-[#1a1a1a]/30 transition-colors">
+              <span className={`w-1 h-1 rounded-full ${dot}`} />
+              {label}
+              <ExternalLink size={8} />
             </a>
           );
         })}
@@ -245,90 +274,69 @@ const MediaBiasSpectrum = ({ sources }) => {
   );
 };
 
+// ─── Narrative Duel ───────────────────────────────────────────
 const NarrativeDuel = ({ duelData }) => {
   if (!duelData) return null;
   const { west_summary, south_summary, convergence, divergence } = duelData;
 
   return (
-    <div className="mt-10 pt-10 border-t border-white/5">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center border border-amber-500/30">
-          <Swords className="text-amber-400" size={20} />
+    <div className="mt-6 pt-6 border-t border-[#1a1a1a]/15">
+      <div className="flex items-center gap-2 mb-5">
+        <Swords size={13} className="text-[#6b6b6b]" />
+        <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono">Narrative Duel · Dialectical Analysis</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="border-l-4 border-l-blue-600 pl-4 py-1">
+          <p className="text-[8px] font-black tracking-[0.25em] text-blue-700 uppercase mb-2 font-mono">Atlanticist Strategy</p>
+          <p className="text-[12px] text-[#3a3a3a] leading-relaxed font-['Georgia',_serif] italic">{west_summary}</p>
         </div>
-        <div>
-          <h4 className="text-xl font-outfit font-bold text-white leading-none">Narrative Duel</h4>
-          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Dialectical Intelligence</p>
+        <div className="border-l-4 border-l-emerald-600 pl-4 py-1">
+          <p className="text-[8px] font-black tracking-[0.25em] text-emerald-700 uppercase mb-2 font-mono">Global South Realism</p>
+          <p className="text-[12px] text-[#3a3a3a] leading-relaxed font-['Georgia',_serif] italic">{south_summary}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Western Perspective */}
-        <div className="glass-card p-6 rounded-2xl border-l-4 border-l-blue-500/50">
-          <h5 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Globe size={12} /> Atlanticist Strategy
-          </h5>
-          <p className="text-sm text-gray-300 leading-relaxed italic">{west_summary}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-[#1a1a1a]/3 p-4 border border-[#1a1a1a]/10">
+          <p className="text-[8px] font-black tracking-[0.25em] text-[#9a9a9a] uppercase mb-1.5 font-mono flex items-center gap-1.5"><Scale size={9} /> Convergence</p>
+          <p className="text-[11px] text-[#5a5a5a] leading-relaxed">{convergence}</p>
         </div>
-
-        {/* Global South Perspective */}
-        <div className="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500/50">
-          <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <MapPin size={12} /> Global South Realism
-          </h5>
-          <p className="text-sm text-gray-300 leading-relaxed italic">{south_summary}</p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <Scale size={14} className="text-cyan-400" /> Points of Convergence
-          </h5>
-          <p className="text-sm text-gray-400 leading-relaxed">{convergence}</p>
-        </div>
-        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <Zap size={14} className="text-amber-400" /> Narrative Divergence
-          </h5>
-          <p className="text-sm text-gray-400 leading-relaxed">{divergence}</p>
+        <div className="bg-[#1a1a1a]/3 p-4 border border-[#1a1a1a]/10">
+          <p className="text-[8px] font-black tracking-[0.25em] text-[#9a9a9a] uppercase mb-1.5 font-mono flex items-center gap-1.5"><Zap size={9} /> Divergence</p>
+          <p className="text-[11px] text-[#5a5a5a] leading-relaxed">{divergence}</p>
         </div>
       </div>
     </div>
   );
 };
 
+// ─── Narrative Timeline ───────────────────────────────────────
 const NarrativeTimeline = ({ briefings, currentClusterId }) => {
   if (!briefings || briefings.length <= 1) return null;
 
   return (
-    <div className="mt-8 pt-8 border-t border-white/5">
-      <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/80 mb-4 flex items-center gap-2">
-        <History size={14} className="text-emerald-400" /> Story Evolution (Chronology)
-      </h4>
-
-      <div className="relative pl-6 border-l border-white/10 space-y-6">
+    <div className="mt-5 pt-5 border-t border-[#1a1a1a]/10">
+      <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] mb-4 font-mono flex items-center gap-1.5">
+        <History size={9} /> Story Evolution
+      </p>
+      <div className="space-y-2">
         {briefings.map((b, i) => (
-          <div key={b.cluster_id} className="relative">
-            {/* Timeline Dot */}
-            <div className={`absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full border-2 ${b.cluster_id === currentClusterId
-              ? 'bg-cyan-500 border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]'
-              : 'bg-gray-800 border-white/20'
-              }`} />
-
-            <div className={`flex flex-col gap-1 ${b.cluster_id === currentClusterId ? 'opacity-100' : 'opacity-50'}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-gray-500">
-                  {new Date(b.generated_at).toLocaleDateString()} at {new Date(b.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${b.risk_score >= 7 ? 'bg-red-500/10 text-red-500' :
-                  b.risk_score >= 4 ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
-                  }`}>
-                  RISK: {b.risk_score}/10
-                </span>
-              </div>
-              <p className="text-xs text-gray-400 line-clamp-1 italic">
-                {b.summary_text.split('\n')[0].replace('#', '').trim()}
+          <div key={b.cluster_id} className={`flex items-start gap-3 py-2 border-b border-[#1a1a1a]/5 last:border-b-0 transition-opacity ${b.cluster_id === currentClusterId ? 'opacity-100' : 'opacity-40'
+            }`}>
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${b.cluster_id === currentClusterId ? 'bg-[#1a1a1a]' : 'bg-[#c8bfaf]'}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-[#5a5a5a] leading-snug line-clamp-1 font-['Georgia',_serif] italic">
+                {cleanSummaryText(b.summary_text?.split('\n').find(l => l.replace(/^[#\s\-\*]+/, '').trim().length > 4) || b.summary_text?.split('\n')[0] || '')
+                  .replace(/^#+\s*/, '').replace(/\*\*/g, '').trim()}
               </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-[8px] font-mono px-1 py-0.5 ${b.risk_score >= 7 ? 'bg-red-100 text-red-700' : b.risk_score >= 4 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                }`}>{b.risk_score}</span>
+              <span className="text-[8px] font-mono text-[#9a9a9a]">
+                {new Date(b.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+              </span>
             </div>
           </div>
         ))}
@@ -337,262 +345,225 @@ const NarrativeTimeline = ({ briefings, currentClusterId }) => {
   );
 };
 
-const BriefingCard = ({ briefing }) => {
+// ─── Briefing Card ────────────────────────────────────────────
+const BriefingCard = ({ briefing, index }) => {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [history, setHistory] = useState([]);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (briefing.narrative_id) {
-        try {
-          const data = await getNarrativeBriefings(briefing.narrative_id);
-          setHistory(data);
-        } catch (err) {
-          console.error("Failed to fetch narrative history", err);
-        }
-      }
-    };
-    fetchHistory();
-  }, [briefing.narrative_id]);
-
-  // Real-time listener for updates (Investigation & Duel)
-  useEffect(() => {
-    const channel = supabase
-      .channel(`updates-${briefing.cluster_id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'cluster_summaries',
-          filter: `cluster_id=eq.${briefing.cluster_id}`
-        },
-        (payload) => {
-          if (payload.new.investigative_report) {
-            setInvestigativeReport(payload.new.investigative_report);
-            setIsInvestigating(false);
-          }
-          if (payload.new.is_investigating !== undefined) {
-            setIsInvestigating(payload.new.is_investigating);
-          }
-          if (payload.new.narrative_duel) {
-            setDuelData(payload.new.narrative_duel);
-            setIsDebating(false);
-          }
-          if (payload.new.is_debating !== undefined) {
-            setIsDebating(payload.new.is_debating);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [briefing.cluster_id]);
-
+  const [expanded, setExpanded] = useState(false);
   const [isInvestigating, setIsInvestigating] = useState(briefing.is_investigating || false);
   const [investigativeReport, setInvestigativeReport] = useState(briefing.investigative_report || null);
   const [isDebating, setIsDebating] = useState(briefing.is_debating || false);
   const [duelData, setDuelData] = useState(briefing.narrative_duel || null);
 
-  const handleInvestigate = async () => {
-    setIsInvestigating(true);
-    try {
-      await launchInvestigation(briefing.cluster_id);
-    } catch (err) {
-      console.error("Failed to start investigation", err);
-      setIsInvestigating(false);
+  useEffect(() => {
+    if (briefing.narrative_id) {
+      getNarrativeBriefings(briefing.narrative_id).then(setHistory).catch(console.error);
     }
-  };
+  }, [briefing.narrative_id]);
 
-  const handleDebate = async () => {
-    setIsDebating(true);
-    try {
-      await launchDebate(briefing.cluster_id);
-    } catch (err) {
-      console.error("Failed to start debate", err);
-      setIsDebating(false);
-    }
-  };
+  useEffect(() => {
+    const channel = supabase
+      .channel(`updates-${briefing.cluster_id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'cluster_summaries',
+        filter: `cluster_id=eq.${briefing.cluster_id}`
+      }, (payload) => {
+        if (payload.new.investigative_report) { setInvestigativeReport(payload.new.investigative_report); setIsInvestigating(false); }
+        if (payload.new.is_investigating !== undefined) setIsInvestigating(payload.new.is_investigating);
+        if (payload.new.narrative_duel) { setDuelData(payload.new.narrative_duel); setIsDebating(false); }
+        if (payload.new.is_debating !== undefined) setIsDebating(payload.new.is_debating);
+      }).subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [briefing.cluster_id]);
 
   const fetchLogs = async () => {
-    if (!showLogs && logs.length === 0) {
+    if (!showLogs && !logs.length) {
       setLoadingLogs(true);
-      try {
-        const data = await getLogs(briefing.cluster_id);
-        setLogs(data);
-      } catch (err) {
-        console.error("Failed to fetch logs", err);
-      }
+      try { const data = await getLogs(briefing.cluster_id); setLogs(data); } catch (e) { console.error(e); }
       setLoadingLogs(false);
     }
     setShowLogs(!showLogs);
   };
 
-  const getRiskColor = (score) => {
-    if (score >= 7) return 'text-red-500 border-red-500/30 bg-red-500/10 shadow-[0_0_10px_rgba(239,68,68,0.2)]';
-    if (score >= 4) return 'text-amber-500 border-amber-500/30 bg-amber-500/10 shadow-[0_0_10px_rgba(245,158,11,0.2)]';
-    return 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+  const handleInvestigate = async () => {
+    setIsInvestigating(true);
+    try { await launchInvestigation(briefing.cluster_id); } catch (e) { console.error(e); setIsInvestigating(false); }
   };
 
+  const handleDebate = async () => {
+    setIsDebating(true);
+    try { await launchDebate(briefing.cluster_id); } catch (e) { console.error(e); setIsDebating(false); }
+  };
+
+  // Extract headline from summary
+  const summaryLines = briefing.summary_text?.split('\n') || [];
+  const headline = summaryLines.find(l => l.startsWith('#'))?.replace(/^#+\s*/, '') || summaryLines[0] || 'Briefing';
+  const cleanedText = cleanSummaryText(briefing.summary_text);
+
+  const isLead = index === 0;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass glass-hover rounded-3xl p-8 mb-8 relative overflow-hidden group"
+      transition={{ delay: index * 0.07, duration: 0.4 }}
+      className={`border-b border-[#1a1a1a]/15 ${isLead ? 'pb-8' : 'py-6'}`}
     >
-      <div className="flex justify-between items-start mb-8">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase flex items-center gap-2">
-              <Globe size={12} /> Intelligence Feed
+      {/* Card Header */}
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <RiskBadge score={briefing.risk_score} />
+          <span className="text-[8px] font-mono text-[#9a9a9a] tracking-wider">
+            {new Date(briefing.generated_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          {briefing.narrative_id && (
+            <span className="text-[8px] font-mono text-[#9a9a9a] flex items-center gap-1">
+              <Hash size={8} /> {briefing.narrative_id?.slice(0, 8)}
             </span>
-            <span className="text-gray-800 text-[10px]">•</span>
-            <span className="text-[10px] font-mono text-gray-500">
-              {new Date(briefing.generated_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-            </span>
-          </div>
-
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold tracking-widest uppercase transition-all duration-700 ${getRiskColor(briefing.risk_score)}`}>
-            <div className={`w-1.5 h-1.5 rounded-full bg-current animate-pulse`} />
-            STABILITY INDEX: {briefing.risk_score}/10
-          </div>
+          )}
         </div>
-
-        <button
-          onClick={fetchLogs}
-          className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2"
-        >
-          <Search size={14} /> {showLogs ? 'Hide Logs' : 'View Intelligence Logs'}
-        </button>
-      </div>
-
-      <div className="prose prose-invert max-w-none prose-sm mb-10">
-        <ReactMarkdown
-          components={{
-            h1: ({ node, ...props }) => <h1 className="text-3xl font-extrabold tracking-tight text-white mb-6 font-outfit leading-tight" {...props} />,
-            h2: ({ node, ...props }) => <h2 className="text-xl font-bold text-cyan-400 mt-8 mb-4 font-outfit" {...props} />,
-            p: ({ node, ...props }) => <p className="text-gray-300 leading-relaxed text-base mb-5" {...props} />,
-            strong: ({ node, ...props }) => <strong className="text-white font-semibold" {...props} />
-          }}
-        >
-          {cleanSummaryText(briefing.summary_text)}
-        </ReactMarkdown>
-      </div>
-
-      <KeyEntities entities={briefing.key_entities} />
-
-      <NarrativeTimeline briefings={history} currentClusterId={briefing.cluster_id} />
-
-      {briefing.impact_analysis && (
-        <div className="bg-white/10 border border-white/10 rounded-2xl p-6 mb-6">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 mb-3 flex items-center gap-2">
-            <Shield size={12} /> Strategic Impact Analysis
-          </h4>
-          <p className="text-sm text-gray-400 leading-relaxed italic">
-            {briefing.impact_analysis}
-          </p>
-        </div>
-      )}
-
-      <MediaBiasSpectrum sources={briefing.source_metadata} />
-
-      <NarrativeDuel duelData={duelData} />
-
-      {/* Duel & Investigation Actions */}
-      <div className="mt-10 pt-10 border-t border-white/5">
-        {!investigativeReport && !isInvestigating && !duelData && !isDebating ? (
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-cyan-500/5 rounded-3xl border border-dashed border-cyan-500/20 group-hover:border-cyan-500/40 transition-all">
-              <Rocket className="text-cyan-500 mb-4 animate-bounce" size={24} />
-              <h4 className="text-sm font-outfit font-bold text-white mb-2">Deep Intelligence</h4>
-              <button
-                onClick={handleInvestigate}
-                className="bg-cyan-500 hover:bg-cyan-400 text-black px-6 py-2.5 rounded-xl font-bold text-[10px] transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-              >
-                <Zap size={14} fill="currentColor" /> Launch Deep-Dive
-              </button>
-            </div>
-
-            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-amber-500/5 rounded-3xl border border-dashed border-amber-500/20 group-hover:border-amber-500/40 transition-all">
-              <Swords className="text-amber-500 mb-4" size={24} />
-              <h4 className="text-sm font-outfit font-bold text-white mb-2">Narrative Dual</h4>
-              <button
-                onClick={handleDebate}
-                className="bg-amber-500 hover:bg-amber-400 text-black px-6 py-2.5 rounded-xl font-bold text-[10px] transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-              >
-                <Scale size={14} /> Start Debate Mode
-              </button>
-            </div>
-          </div>
-        ) : isInvestigating || isDebating ? (
-          <div className="p-12 bg-black/40 rounded-3xl border border-white/10 flex flex-col items-center">
-            <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
-              {isInvestigating ? <Cpu className="absolute inset-4 text-cyan-500 animate-pulse" size={32} /> : <Swords className="absolute inset-4 text-amber-500 animate-pulse" size={32} />}
-            </div>
-            <h4 className="text-lg font-outfit font-bold text-white mb-2">Agent {isInvestigating ? 'Investigation' : 'Duel'} in Progress</h4>
-            <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest font-mono">
-              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              {isInvestigating ? 'Searching Primary Sources...' : 'Simulating Dialectical Narrative...'}
-            </div>
-          </div>
-        ) : null}
-
-        {investigativeReport && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-cyan-500/[0.03] border border-cyan-500/10 rounded-3xl p-10 relative overflow-hidden"
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={fetchLogs}
+            className="text-[8px] font-mono text-[#9a9a9a] hover:text-[#1a1a1a] transition-colors tracking-widest uppercase border border-transparent hover:border-[#1a1a1a]/20 px-2 py-1"
           >
-            <div className="absolute top-0 right-10 w-24 h-24 bg-cyan-500/5 blur-3xl rounded-full"></div>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center border border-cyan-500/30">
-                <BookOpen className="text-cyan-400" size={20} />
-              </div>
-              <div>
-                <h4 className="text-xl font-outfit font-bold text-white leading-none">Investigative Report</h4>
-                <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mt-1">Sovereign Intel</p>
-              </div>
-            </div>
-            <div className="prose prose-invert max-w-none prose-sm leading-relaxed text-gray-300">
-              <ReactMarkdown>{investigativeReport}</ReactMarkdown>
-            </div>
-          </motion.div>
+            {showLogs ? 'Hide' : 'Logs'}
+          </button>
+        </div>
+      </div>
+
+      {/* Headline */}
+      <h2 className={`font-['Playfair_Display',_serif] font-black text-[#1a1a1a] leading-tight mb-3 cursor-pointer hover:text-[#3a3a3a] transition-colors ${isLead ? 'text-2xl md:text-3xl' : 'text-lg md:text-xl'
+        }`} onClick={() => setExpanded(!expanded)}>
+        {headline}
+      </h2>
+
+      {/* Summary preview */}
+      <div className={`overflow-hidden transition-all duration-500 ${expanded ? '' : 'max-h-32 relative'}`}>
+        <div className="prose max-w-none text-[13px] leading-relaxed text-[#4a4a4a]"
+          style={{ fontFamily: 'Georgia, serif' }}>
+          <ReactMarkdown
+            components={{
+              h1: ({ node, ...props }) => null,
+              h2: ({ node, ...props }) => <h3 className="text-[11px] font-black tracking-[0.2em] uppercase text-[#9a9a9a] mt-4 mb-1 font-mono not-italic" {...props} />,
+              p: ({ node, ...props }) => <p className="mb-3 text-[13px] text-[#4a4a4a] leading-relaxed" style={{ fontFamily: 'Georgia, serif' }} {...props} />,
+              strong: ({ node, ...props }) => <strong className="text-[#1a1a1a] font-bold" {...props} />
+            }}
+          >
+            {cleanedText}
+          </ReactMarkdown>
+        </div>
+        {!expanded && (
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#f2ede5] to-transparent" />
         )}
       </div>
 
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="text-[9px] font-black tracking-[0.25em] uppercase text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors mt-2 flex items-center gap-1 font-mono"
+      >
+        {expanded ? '↑ Collapse' : '↓ Read Full Briefing'}
+      </button>
+
+      {/* Expanded content */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <KeyEntities entities={briefing.key_entities} />
+
+            {briefing.impact_analysis && (
+              <div className="mt-5 bg-[#2a2520] text-[#e8e0d0] p-5 border-l-2 border-l-[#c8a870]">
+                <p className="text-[8px] font-black tracking-[0.3em] uppercase mb-2 font-mono text-[#c8a870] flex items-center gap-1.5">
+                  <Shield size={9} /> Strategic Impact Analysis
+                </p>
+                <p className="text-[12px] leading-relaxed italic text-[#d8d0c0]" style={{ fontFamily: 'Georgia, serif' }}>
+                  {briefing.impact_analysis}
+                </p>
+              </div>
+            )}
+
+            <MediaBiasSpectrum sources={briefing.source_metadata} />
+            <NarrativeTimeline briefings={history} currentClusterId={briefing.cluster_id} />
+            <NarrativeDuel duelData={duelData} />
+
+            {/* Actions */}
+            <div className="mt-6 pt-6 border-t border-[#1a1a1a]/10">
+              {!investigativeReport && !isInvestigating && !duelData && !isDebating ? (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={handleInvestigate}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e0d0] text-[9px] font-black tracking-[0.2em] uppercase font-mono hover:bg-[#3a3a3a] transition-colors"
+                  >
+                    <Rocket size={12} /> Deep-Dive Investigation
+                  </button>
+                  <button
+                    onClick={handleDebate}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-[#1a1a1a]/30 text-[#6b6b6b] text-[9px] font-black tracking-[0.2em] uppercase font-mono hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
+                  >
+                    <Swords size={12} /> Narrative Debate
+                  </button>
+                </div>
+              ) : (isInvestigating || isDebating) ? (
+                <div className="flex items-center gap-4 py-4 border border-[#1a1a1a]/15 px-5">
+                  <div className="w-4 h-4 border-2 border-[#1a1a1a]/20 border-t-[#1a1a1a] rounded-full animate-spin shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest font-mono text-[#1a1a1a]">
+                      {isInvestigating ? 'Investigation in progress' : 'Dialectical simulation running'}
+                    </p>
+                    <p className="text-[9px] text-[#9a9a9a] font-mono mt-0.5">
+                      {isInvestigating ? 'Searching primary sources...' : 'Modeling narrative divergence...'}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {investigativeReport && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border border-[#1a1a1a]/20 bg-[#1a1a1a]/2">
+                  <div className="border-b border-[#1a1a1a]/15 px-5 py-3 flex items-center gap-2">
+                    <BookOpen size={12} className="text-[#6b6b6b]" />
+                    <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono text-[#6b6b6b]">Investigative Report</p>
+                  </div>
+                  <div className="p-5 prose max-w-none text-[12px] text-[#4a4a4a]" style={{ fontFamily: 'Georgia, serif' }}>
+                    <ReactMarkdown>{investigativeReport}</ReactMarkdown>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Logs */}
       <AnimatePresence>
         {showLogs && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden mt-6 pt-6 border-t border-white/5"
+            className="overflow-hidden mt-4 pt-4 border-t border-[#1a1a1a]/10"
           >
-            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
-              <Activity size={14} /> Multi-Agent Thought Process
-            </h4>
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] mb-3 font-mono flex items-center gap-1.5">
+              <Activity size={9} /> Agent Thought Process
+            </p>
             {loadingLogs ? (
-              <div className="animate-pulse flex gap-2 items-center text-gray-600 text-xs">
-                <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
-                Retrieving agent memory...
-              </div>
+              <div className="text-[10px] font-mono text-[#9a9a9a] animate-pulse">Retrieving agent memory...</div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {logs.map((log, i) => (
-                  <div key={i} className="bg-black/40 rounded-lg p-3 border border-white/5">
-                    <div className="flex justify-between text-[10px] font-bold uppercase mb-1">
-                      <span className="text-cyan-400">{log.agent_name}</span>
-                      <span className="text-gray-600">Step {log.step_number}</span>
+                  <div key={i} className="bg-[#1a1a1a]/3 border border-[#1a1a1a]/10 p-3">
+                    <div className="flex justify-between text-[8px] font-mono font-bold mb-1">
+                      <span className="text-[#1a1a1a]">{log.agent_name}</span>
+                      <span className="text-[#9a9a9a]">Step {log.step_number}</span>
                     </div>
-                    <p className="text-xs text-gray-300 italic mb-2">"{log.thought_process}"</p>
-                    <div className="text-[10px] font-mono text-cyan-500/50 bg-cyan-500/5 p-1 rounded">
-                      {log.action_taken}
-                    </div>
+                    <p className="text-[11px] text-[#5a5a5a] italic mb-1.5" style={{ fontFamily: 'Georgia, serif' }}>"{log.thought_process}"</p>
+                    <p className="text-[9px] font-mono text-[#9a9a9a] bg-[#1a1a1a]/5 px-2 py-1">{log.action_taken}</p>
                   </div>
                 ))}
               </div>
@@ -600,14 +571,20 @@ const BriefingCard = ({ briefing }) => {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </motion.article>
   );
 };
 
+// ─── Copilot ──────────────────────────────────────────────────
 const Copilot = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -615,194 +592,242 @@ const Copilot = () => {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
-
     try {
       const data = await chatWithCopilot(input);
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (err) {
-      console.error("Copilot UI Error:", err);
-      setMessages(prev => [...prev, { role: 'assistant', content: `**Intelligence Sync Error:** ${err.message || "Unknown communication failure"}\n\nCheck browser console for details.` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `**Sync Error:** ${err.message || "Unknown failure"}` }]);
     }
     setLoading(false);
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
-      <div className="flex-1 overflow-y-auto space-y-4 pr-4 custom-scrollbar">
+    <div className="h-[calc(100vh-240px)] flex flex-col">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto space-y-0 pr-1" style={{ scrollbarWidth: 'thin' }}>
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-gray-500 text-center p-10">
-            <MessageSquare size={48} className="mb-4 opacity-20" />
-            <p className="text-sm">Ask the OmniNews Copilot about recent events.<br />The agent will search verified briefings to answer.</p>
+          <div className="h-full flex flex-col items-center justify-center text-center px-10 py-20">
+            <div className="border border-[#1a1a1a]/15 p-8 max-w-sm">
+              <MessageSquare size={28} className="mx-auto text-[#c8bfaf] mb-4" strokeWidth={1.5} />
+              <p className="text-[11px] font-mono text-[#9a9a9a] leading-relaxed tracking-wide">
+                Query the Intelligence Copilot.<br />
+                Responses are grounded in verified briefings.
+              </p>
+            </div>
           </div>
         )}
         {messages.map((m, i) => (
           <motion.div
-            initial={{ opacity: 0, x: m.role === 'user' ? 20 : -20 }}
-            animate={{ opacity: 1, x: 0 }}
             key={i}
-            className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
           >
-            <div className={`max-w-[80%] p-4 rounded-2xl ${m.role === 'user'
-              ? 'bg-cyan-500/10 border border-cyan-500/20 text-white'
-              : 'glass-card text-gray-200'
+            {m.role === 'assistant' && (
+              <div className="w-6 h-6 bg-[#1a1a1a] flex items-center justify-center shrink-0 mr-3 mt-1">
+                <Shield size={12} className="text-[#e8e0d0]" />
+              </div>
+            )}
+            <div className={`max-w-[82%] ${m.role === 'user'
+              ? 'bg-[#1a1a1a] text-[#e8e0d0] px-4 py-3'
+              : 'border border-[#1a1a1a]/15 bg-[#faf7f2] px-5 py-4'
               }`}>
-              <ReactMarkdown className="prose prose-invert prose-sm">{m.content}</ReactMarkdown>
+              {m.role === 'user' ? (
+                <p className="text-[12px] font-mono">{m.content}</p>
+              ) : (
+                <div className="prose max-w-none text-[12px] text-[#3a3a3a]" style={{ fontFamily: 'Georgia, serif' }}>
+                  <ReactMarkdown className="prose prose-sm">{m.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
         {loading && (
-          <div className="flex justify-start">
-            <div className="glass-card p-4 rounded-2xl animate-pulse text-xs text-gray-500 italic">
-              Agent is searching memory...
+          <div className="flex justify-start mb-4">
+            <div className="w-6 h-6 bg-[#1a1a1a] flex items-center justify-center shrink-0 mr-3 mt-1">
+              <Shield size={12} className="text-[#e8e0d0]" />
+            </div>
+            <div className="border border-[#1a1a1a]/15 bg-[#faf7f2] px-5 py-4">
+              <div className="flex gap-1.5 items-center">
+                {[0, 1, 2].map(i => (
+                  <span key={i} className="w-1.5 h-1.5 bg-[#1a1a1a]/30 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                ))}
+                <span className="text-[9px] font-mono text-[#9a9a9a] ml-2">Searching briefings...</span>
+              </div>
             </div>
           </div>
         )}
+        <div ref={bottomRef} />
       </div>
-      <div className="mt-4 flex gap-2">
+
+      {/* Input */}
+      <div className="pt-4 border-t border-[#1a1a1a]/15 flex gap-0">
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask about global security, tech trends, or conflicts..."
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-gray-600"
+          onChange={e => setInput(e.target.value)}
+          onKeyPress={e => e.key === 'Enter' && handleSend()}
+          placeholder="Ask about global events, conflicts, or policy shifts..."
+          className="flex-1 bg-[#faf7f2] border border-[#1a1a1a]/20 border-r-0 px-4 py-3 text-[12px] font-mono focus:outline-none focus:border-[#1a1a1a]/50 placeholder:text-[#c8bfaf] text-[#1a1a1a]"
+          style={{ fontFamily: 'Georgia, serif' }}
         />
         <button
           onClick={handleSend}
-          className="bg-cyan-500 hover:bg-cyan-400 text-black px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+          className="bg-[#1a1a1a] text-[#e8e0d0] px-5 py-3 text-[9px] font-black tracking-[0.2em] uppercase font-mono hover:bg-[#3a3a3a] transition-colors flex items-center gap-2"
         >
-          <Search size={18} />
-          Search
+          <Search size={13} />
+          Query
         </button>
       </div>
     </div>
   );
 };
 
-// --- Main App ---
-
+// ─── Main App ─────────────────────────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState('feed');
   const [briefings, setBriefings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const data = await getBriefings();
-        setBriefings(data);
-      } catch (err) {
-        console.error("Failed to fetch briefings", err);
-      }
-      setLoading(false);
-    };
+    getBriefings().then(setBriefings).catch(console.error).finally(() => setLoading(false));
 
-    fetchInitialData();
-
-    // --- REALTIME SUBSCRIPTION ---
     const channel = supabase
       .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'cluster_summaries'
-        },
-        (payload) => {
-          console.log('Real-time Briefing Received:', payload.new);
-          // Prepend the new briefing to the list
-          setBriefings(prev => [payload.new, ...prev]);
-        }
-      )
-      .subscribe();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cluster_summaries' },
+        (payload) => setBriefings(prev => [payload.new, ...prev])
+      ).subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, []);
 
   return (
-    <div className="h-screen w-full bg-[#030303] text-gray-100 flex overflow-hidden selection:bg-cyan-500/30">
-      {/* Sidebar - Desktop Only */}
-      <aside className="hidden md:flex w-80 h-full border-r border-white/5 flex-col p-8 glass z-20 shrink-0">
-        <div className="flex items-center gap-4 mb-12 px-2 group cursor-pointer">
-          <div className="w-12 h-12 bg-cyan-500 rounded-2xl flex items-center justify-center neon-glow-cyan transition-transform transform group-hover:rotate-12 duration-500">
-            <Shield className="text-black" size={28} />
+    <div className="min-h-screen w-full text-[#1a1a1a] flex flex-col" style={{ backgroundColor: '#f2ede5', fontFamily: 'Georgia, serif' }}>
+      {/* Load Playfair Display */}
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
+
+      <Masthead briefings={briefings} activeTab={activeTab} />
+
+      <div className="flex flex-1 max-w-screen-xl mx-auto w-full">
+        {/* Sidebar */}
+        <aside className="hidden md:flex w-52 shrink-0 border-r border-[#1a1a1a]/15 flex-col pt-8 pb-6 sticky top-0 h-[calc(100vh-160px)]">
+          <div className="px-4 mb-6">
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-3">Navigation</p>
+            <nav className="space-y-0.5">
+              <SidebarItem icon={Rss} label="Intel Feed" active={activeTab === 'feed'} onClick={() => setActiveTab('feed')} count={briefings.length} />
+              <SidebarItem icon={MessageSquare} label="Copilot" active={activeTab === 'copilot'} onClick={() => setActiveTab('copilot')} />
+            </nav>
           </div>
-          <div>
-            <h1 className="font-outfit font-extrabold tracking-tighter text-2xl text-white">OMNINEWS</h1>
-            <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-[0.3em] leading-none mt-1">Intelligence</p>
+
+          <div className="px-4 mt-6 border-t border-[#1a1a1a]/10 pt-6">
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-3">Status</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span className="text-[9px] font-mono text-[#6b6b6b]">Feed Active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                <span className="text-[9px] font-mono text-[#6b6b6b]">Embeddings Ready</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9a9a9a]" />
+                <span className="text-[9px] font-mono text-[#6b6b6b]">Vector Search</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <nav className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
-          <SidebarItem
-            icon={LayoutDashboard}
-            label="Intelligence Feed"
-            active={activeTab === 'feed'}
-            onClick={() => setActiveTab('feed')}
-          />
-          <SidebarItem
-            icon={MessageSquare}
-            label="News Copilot"
-            active={activeTab === 'copilot'}
-            onClick={() => setActiveTab('copilot')}
-          />
-        </nav>
-
-        <div className="mt-auto pt-6 border-t border-white/5">
-          <div className="flex items-center gap-3 px-2 opacity-30 hover:opacity-100 transition-opacity">
-            <Activity size={16} className="text-cyan-500" />
-            <span className="text-[10px] font-mono uppercase tracking-widest leading-none">Quantum Link Active</span>
+          <div className="mt-auto px-4 pt-4 border-t border-[#1a1a1a]/10">
+            <p className="text-[8px] font-mono text-[#c8bfaf] leading-relaxed">
+              Multi-agent news intelligence system. Data sourced from global verified outlets.
+            </p>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 h-full overflow-y-auto custom-scrollbar relative z-10 flex flex-col">
-        {/* Subtle Background Elements */}
-        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none z-0" />
-        <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/5 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2 pointer-events-none z-0" />
-
-        <StickyHeader activeTab={activeTab} />
-
-        <section className="flex-1 px-6 md:px-16 pb-32 md:pb-16 pt-8 z-10">
-          <div className="max-w-4xl">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-              >
-                {activeTab === 'feed' ? (
-                  loading ? (
-                    <div className="space-y-8">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="glass border-white/5 h-64 rounded-[2rem] animate-pulse" />
-                      ))}
-                    </div>
-                  ) : briefings.length > 0 ? (
-                    <div className="space-y-8 pb-12">
-                      {briefings.map(b => <BriefingCard key={b.cluster_id} briefing={b} />)}
-                    </div>
-                  ) : (
-                    <div className="text-center py-32 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10">
-                      <Zap size={48} className="mx-auto text-gray-700 mb-4" />
-                      <p className="text-gray-500 font-medium">No active narratives detected.<br/><span className="text-xs">Ensure ingestion service is running.</span></p>
-                    </div>
-                  )
+        {/* Main content */}
+        <main className="flex-1 min-w-0 px-6 md:px-10 pt-8 pb-32 md:pb-16">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              {activeTab === 'feed' ? (
+                loading ? (
+                  <div className="space-y-6">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="border-b border-[#1a1a1a]/15 pb-6 animate-pulse">
+                        <div className="h-3 bg-[#1a1a1a]/10 w-24 mb-3 rounded" />
+                        <div className="h-8 bg-[#1a1a1a]/10 w-3/4 mb-2 rounded" />
+                        <div className="h-3 bg-[#1a1a1a]/5 w-full mb-1 rounded" />
+                        <div className="h-3 bg-[#1a1a1a]/5 w-5/6 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : briefings.length > 0 ? (
+                  <div>
+                    {briefings.map((b, i) => (
+                      <BriefingCard key={b.cluster_id} briefing={b} index={i} />
+                    ))}
+                  </div>
                 ) : (
+                  <div className="text-center py-24 border border-dashed border-[#1a1a1a]/15">
+                    <p className="text-[11px] font-mono text-[#9a9a9a]">No active narratives detected.</p>
+                    <p className="text-[9px] font-mono text-[#c8bfaf] mt-1">Ensure ingestion service is running.</p>
+                  </div>
+                )
+              ) : (
+                <div>
+                  <div className="border-b border-[#1a1a1a]/15 pb-6 mb-8">
+                    <h2 className="font-['Playfair_Display',_serif] text-2xl font-black text-[#1a1a1a] mb-1">Intelligence Copilot</h2>
+                    <p className="text-[11px] font-mono text-[#9a9a9a]">Ask the AI about any topic covered in the current briefings.</p>
+                  </div>
                   <Copilot />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </section>
-      </main>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </main>
 
-      {/* Mobile Navigation */}
+        {/* Right rail - desktop only */}
+        <aside className="hidden lg:block w-56 shrink-0 border-l border-[#1a1a1a]/15 pt-8 pb-6 px-5 sticky top-0 h-[calc(100vh-160px)]">
+          <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-4">Risk Summary</p>
+          {!loading && briefings.length > 0 && (
+            <div className="space-y-2">
+              {[
+                { label: 'Critical', min: 7, color: 'bg-red-600' },
+                { label: 'Elevated', min: 4, max: 7, color: 'bg-amber-500' },
+                { label: 'Stable', max: 4, color: 'bg-emerald-700' },
+              ].map(tier => {
+                const count = briefings.filter(b =>
+                  (tier.min === undefined || b.risk_score >= tier.min) &&
+                  (tier.max === undefined || b.risk_score < tier.max)
+                ).length;
+                return (
+                  <div key={tier.label} className="flex items-center justify-between py-1.5 border-b border-[#1a1a1a]/8">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-sm ${tier.color}`} />
+                      <span className="text-[9px] font-mono text-[#6b6b6b]">{tier.label}</span>
+                    </div>
+                    <span className="text-[10px] font-black font-mono text-[#1a1a1a]">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-6 pt-6 border-t border-[#1a1a1a]/10">
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-3">Latest Update</p>
+            {briefings[0] && (
+              <p className="text-[9px] font-mono text-[#9a9a9a] leading-relaxed">
+                {new Date(briefings[0].generated_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
+        </aside>
+      </div>
+
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
