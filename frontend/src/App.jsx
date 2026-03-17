@@ -32,83 +32,13 @@ import { getBriefings, getLogs, getNarrativeBriefings, launchInvestigation, laun
 import {
   Globe, AlertTriangle, Search, Activity, LayoutDashboard,
   MessageSquare, Shield, Clock, TrendingUp, History,
-  Cpu, Rocket, Zap, BookOpen, ChevronRight, User, Building2, MapPin,
-  BarChart3, ExternalLink, Swords, Scale, Sparkles, Server, Database,
-  Workflow, Layers, Code2, Menu, X, Smartphone
+  Rocket, Zap, BookOpen, ChevronRight, User, Building2, MapPin,
+  BarChart3, ExternalLink, Swords, Scale, Sparkles,
+  Menu, X
 } from 'lucide-react';
 
 // --- Components ---
 
-const SystemArchitecture = () => {
-  const techs = [
-    { icon: Workflow, name: "Dagster", desc: "Orchestration & ETL pipelines for news ingestion", color: "text-purple-400" },
-    { icon: Database, name: "Supabase", desc: "Vector storage & Postgres with real-time subscriptions", color: "text-emerald-400" },
-    { icon: Sparkles, name: "Gemini 1.5", desc: "Deep multi-agent reasoning and narrative duals", color: "text-blue-400" },
-    { icon: Cpu, name: "Transformers.js", desc: "Local in-browser embeddings for privacy and speed", color: "text-cyan-400" },
-    { icon: Layers, name: "Multi-Agent", desc: "Collaborative agents for search, verify, and summarize", color: "text-amber-400" },
-    { icon: Smartphone, name: "React + Vite", desc: "Ultra-fast, responsive intelligence dashboard", color: "text-pink-400" }
-  ];
-
-  const steps = [
-    { title: "Ingestion", desc: "Global news sources are monitored via Tavily and direct feeds." },
-    { title: "Processing", desc: "Articles are cleaned, deduplicated, and entities are extracted." },
-    { title: "Clustering", desc: "DBSCAN algorithm groups articles into emerging narratives." },
-    { title: "Intelligence", desc: "Agents generate briefings, impact analysis, and narrative duals." }
-  ];
-
-  return (
-    <div className="space-y-12 animate-slide-up">
-      <section>
-        <h3 className="text-2xl font-bold mb-8 flex items-center gap-3">
-          <Server className="text-cyan-500" /> Technology Stack
-        </h3>
-        <div className="intelligence-grid">
-          {techs.map((t, i) => (
-            <motion.div
-              key={i}
-              whileHover={{ scale: 1.02 }}
-              className="glass-card p-6 rounded-3xl"
-            >
-              <div className={`p-3 rounded-2xl bg-white/5 w-fit mb-4 ${t.color}`}>
-                <t.icon size={24} />
-              </div>
-              <h4 className="text-lg font-bold mb-2">{t.name}</h4>
-              <p className="text-sm text-gray-400 leading-relaxed">{t.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      <section className="glass-bright rounded-[2.5rem] p-10 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[100px] rounded-full" />
-        <h3 className="text-2xl font-bold mb-8 flex items-center gap-3">
-          <Workflow className="text-purple-500" /> Intelligence Workflow
-        </h3>
-        <div className="relative space-y-8">
-          {steps.map((s, i) => (
-            <div key={i} className="flex gap-6 relative">
-              {i !== steps.length - 1 && (
-                <div className="absolute left-[23px] top-12 bottom-[-32px] w-px bg-gradient-to-b from-purple-500/50 to-transparent" />
-              )}
-              <div className="flex-shrink-0 w-12 h-12 rounded-full glass flex items-center justify-center font-bold text-lg border-purple-500/30 text-purple-400 z-10">
-                {i + 1}
-              </div>
-              <div>
-                <h4 className="text-white font-bold mb-1">{s.title}</h4>
-                <p className="text-sm text-gray-400 max-w-xl">{s.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="bg-white/5 border border-white/5 rounded-3xl p-8 text-center">
-        <h4 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-[0.2em]">Open Source Intelligence</h4>
-        <p className="text-gray-500 text-xs">Built for global security awareness and narrative transparency.</p>
-      </div>
-    </div>
-  );
-};
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
@@ -129,8 +59,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
 const MobileNav = ({ activeTab, setActiveTab }) => {
   const items = [
     { id: 'feed', icon: LayoutDashboard, label: 'Feed' },
-    { id: 'copilot', icon: MessageSquare, label: 'Copilot' },
-    { id: 'arch', icon: Server, label: 'System' }
+    { id: 'copilot', icon: MessageSquare, label: 'Copilot' }
   ];
 
   return (
@@ -814,18 +743,6 @@ export default function App() {
             active={activeTab === 'feed'}
             onClick={() => setActiveTab('feed')}
           />
-          <SidebarItem
-            icon={MessageSquare}
-            label="News Copilot"
-            active={activeTab === 'copilot'}
-            onClick={() => setActiveTab('copilot')}
-          />
-          <SidebarItem
-            icon={Server}
-            label="System Architecture"
-            active={activeTab === 'arch'}
-            onClick={() => setActiveTab('arch')}
-          />
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/5">
@@ -871,10 +788,8 @@ export default function App() {
                       <p className="text-gray-500 font-medium">No active narratives detected.<br/><span className="text-xs">Ensure ingestion service is running.</span></p>
                     </div>
                   )
-                ) : activeTab === 'copilot' ? (
-                  <Copilot />
                 ) : (
-                  <SystemArchitecture />
+                  <Copilot />
                 )}
               </motion.div>
             </AnimatePresence>
