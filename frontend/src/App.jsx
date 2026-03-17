@@ -86,8 +86,7 @@ const MobileNav = ({ activeTab, setActiveTab }) => {
 const StickyHeader = ({ activeTab }) => {
   const titles = {
     feed: { main: 'Intelligence Feed', sub: 'Real-time multi-agent narrative analysis' },
-    copilot: { main: 'News Copilot', sub: 'Direct interface with Intelligence Core' },
-    arch: { main: 'System Architecture', sub: 'Technical specifications & workflow' }
+    copilot: { main: 'News Copilot', sub: 'Direct interface with Intelligence Core' }
   };
 
   return (
@@ -742,6 +741,12 @@ export default function App() {
             label="Intelligence Feed"
             active={activeTab === 'feed'}
             onClick={() => setActiveTab('feed')}
+          />
+          <SidebarItem
+            icon={MessageSquare}
+            label="News Copilot"
+            active={activeTab === 'copilot'}
+            onClick={() => setActiveTab('copilot')}
           />
         </nav>
 
