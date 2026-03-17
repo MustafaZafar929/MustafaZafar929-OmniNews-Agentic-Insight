@@ -105,10 +105,10 @@ const StickyHeader = ({ activeTab }) => {
             <h1 className="font-outfit font-extrabold tracking-tighter text-xl text-white">OMNINEWS</h1>
           </div>
           <h2 className="text-3xl md:text-5xl font-outfit font-extrabold tracking-tight text-white mb-2 md:mb-4 leading-tight gradient-text-cyan">
-            {titles[activeTab].main}
+            {titles[activeTab]?.main || titles.feed.main}
           </h2>
           <p className="text-sm md:text-lg text-gray-400 font-light leading-relaxed max-w-2xl">
-            {titles[activeTab].sub}
+            {titles[activeTab]?.sub || titles.feed.sub}
           </p>
         </motion.div>
       </div>
