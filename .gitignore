@@ -1,3 +1,33 @@
-venv
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
 .env
-frontend/node_modules
+
+# Node.js
+frontend/node_modules/
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Other
+test_*.py
+keys.txt
+final_test_results.txt
+db_check_output.txt
+server_env.txt
+video_presentation_script.md.resolved
+migrate_*.py
+check_db_debug.py
+file.txt

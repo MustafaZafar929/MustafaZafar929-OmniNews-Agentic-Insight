@@ -98,7 +98,13 @@ services:
       - .env
 
   frontend_service:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+        - VITE_OPENROUTER_API_KEY=${VITE_OPENROUTER_API_KEY}
+        - VITE_GOOGLE_AI_STUDIO_API_KEY=${VITE_GOOGLE_AI_STUDIO_API_KEY}
     environment:
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
@@ -108,7 +114,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "5173:5173"
+      - "5173:80"
     depends_on:
       - ingestion_service
     env_file:

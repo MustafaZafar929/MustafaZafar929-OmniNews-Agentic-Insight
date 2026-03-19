@@ -37,10 +37,10 @@ const TickerBar = ({ briefings }) => {
   });
 
   return (
-    <div className="bg-[#e8e0d0] border-b border-[#c8bfaf] overflow-hidden flex items-stretch h-8">
-      <div className="bg-[#1a1a1a] text-[#e8e0d0] px-4 flex items-center shrink-0 z-10">
-        <span className="text-[9px] font-bold tracking-[0.25em] uppercase font-mono flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+    <div className="overflow-hidden flex items-stretch h-8" style={{ background: 'var(--paper-warm)', borderBottom: '1px solid var(--ink-rule)' }}>
+      <div className="px-4 flex items-center shrink-0 z-10" style={{ background: 'var(--ink)' }}>
+        <span className="text-[9px] font-bold tracking-[0.25em] uppercase font-mono flex items-center gap-2" style={{ color: 'var(--paper)' }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse inline-block" />
           LIVE
         </span>
       </div>
@@ -51,7 +51,8 @@ const TickerBar = ({ briefings }) => {
           transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
         >
           {[...text, ...text].map((t, i) => (
-            <span key={i} className="text-[10px] font-medium text-[#2a2a2a] px-6 tracking-wide border-r border-[#c8bfaf] h-8 flex items-center font-mono">
+            <span key={i} className="text-[10px] font-medium px-6 tracking-wide h-8 flex items-center font-mono"
+              style={{ color: 'var(--ink-mid)', borderRight: '1px solid var(--ink-rule)' }}>
               {t}
             </span>
           ))}
@@ -65,15 +66,22 @@ const TickerBar = ({ briefings }) => {
 const SidebarItem = ({ icon: Icon, label, active, onClick, count }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-200 text-left border-l-2 ${active
-      ? 'border-l-[#1a1a1a] bg-[#1a1a1a]/5 text-[#1a1a1a]'
-      : 'border-l-transparent text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/3'
-      }`}
+    className="w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-200 text-left border-l-2"
+    style={{
+      borderLeftColor: active ? 'var(--ink)' : 'transparent',
+      background: active ? 'rgba(24,24,24,0.05)' : 'transparent',
+      color: active ? 'var(--ink)' : 'var(--ink-faint)',
+    }}
+    onMouseOver={e => { if (!active) { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'rgba(24,24,24,0.03)'; } }}
+    onMouseOut={e => { if (!active) { e.currentTarget.style.color = 'var(--ink-faint)'; e.currentTarget.style.background = 'transparent'; } }}
   >
     <Icon size={15} strokeWidth={active ? 2.5 : 1.8} />
-    <span className={`text-[11px] tracking-[0.05em] uppercase font-bold flex-1 ${active ? 'font-black' : ''}`}>{label}</span>
+    <span className="text-[11px] tracking-[0.05em] uppercase font-bold flex-1 font-mono">{label}</span>
     {count !== undefined && (
-      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${active ? 'bg-[#1a1a1a] text-[#e8e0d0]' : 'bg-[#1a1a1a]/10 text-[#6b6b6b]'}`}>
+      <span className="text-[9px] font-mono px-1.5 py-0.5" style={{
+        background: active ? 'var(--ink)' : 'rgba(24,24,24,0.08)',
+        color: active ? 'var(--paper)' : 'var(--ink-faint)',
+      }}>
         {count}
       </span>
     )}
@@ -81,7 +89,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, count }) => (
 );
 
 const MobileNav = ({ activeTab, setActiveTab }) => (
-  <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#f2ede5] border-t border-[#c8bfaf]">
+  <div className="md:hidden fixed bottom-0 left-0 right-0 z-50" style={{ background: 'var(--paper-warm)', borderTop: '1px solid var(--ink-rule)' }}>
     <div className="flex">
       {[
         { id: 'feed', icon: Rss, label: 'Feed' },
@@ -90,8 +98,8 @@ const MobileNav = ({ activeTab, setActiveTab }) => (
         <button
           key={item.id}
           onClick={() => setActiveTab(item.id)}
-          className={`flex-1 flex flex-col items-center gap-1 py-3 text-[9px] tracking-[0.15em] uppercase font-bold transition-colors ${activeTab === item.id ? 'text-[#1a1a1a]' : 'text-[#9a9a9a]'
-            }`}
+          className="flex-1 flex flex-col items-center gap-1 py-3 text-[9px] tracking-[0.15em] uppercase font-bold transition-colors font-mono"
+          style={{ color: activeTab === item.id ? 'var(--ink)' : 'var(--ink-faint)' }}
         >
           <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 1.5} />
           {item.label}
@@ -107,41 +115,43 @@ const Masthead = ({ briefings, activeTab }) => {
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <header className="border-b border-[#1a1a1a]/20 bg-[#f2ede5]">
+    <header className="border-b" style={{ borderColor: 'var(--ink-rule)', backgroundColor: 'var(--paper)' }}>
       {/* Top rule */}
       <div className="h-[3px] bg-[#1a1a1a]" />
 
       {/* Masthead row */}
-      <div className="px-6 md:px-10 py-5 flex items-end justify-between border-b border-[#c8bfaf]">
+      <div className="px-6 md:px-10 py-5 flex items-end justify-between border-b" style={{ borderColor: 'var(--ink-rule)' }}>
         <div>
           <h1 className="font-['Playfair_Display',_serif] text-4xl md:text-5xl font-black tracking-tight text-[#1a1a1a] leading-none">
             OMNINEWS
           </h1>
-          <p className="text-[9px] font-bold tracking-[0.35em] text-[#6b6b6b] uppercase mt-1.5 font-mono">
+          <p className="text-[9px] font-bold tracking-[0.35em] uppercase mt-1.5 font-mono" style={{ color: 'var(--ink-muted)' }}>
             Intelligence · Analysis · Synthesis
           </p>
         </div>
         <div className="hidden md:flex flex-col items-end gap-1">
-          <span className="text-[9px] font-mono text-[#6b6b6b] tracking-widest uppercase">{dateStr}</span>
+          <span className="text-[9px] font-mono tracking-widest uppercase" style={{ color: 'var(--ink-muted)' }}>{dateStr}</span>
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-            <span className="text-[9px] font-mono text-[#6b6b6b] tracking-widest">LIVE FEED ACTIVE</span>
+            <span className="text-[9px] font-mono tracking-widest" style={{ color: 'var(--ink-muted)' }}>LIVE FEED ACTIVE</span>
           </div>
         </div>
       </div>
 
       {/* Section nav */}
-      <div className="px-6 md:px-10 flex items-center gap-0 border-b border-[#c8bfaf] overflow-x-auto">
+      <div className="px-6 md:px-10 flex items-center gap-0 border-b overflow-x-auto" style={{ borderColor: 'var(--ink-rule)' }}>
         <div className="flex items-center gap-6 py-2.5">
-          <span className={`text-[10px] font-bold tracking-[0.2em] uppercase cursor-default pb-0.5 ${activeTab === 'feed' ? 'text-[#1a1a1a] border-b-2 border-[#1a1a1a]' : 'text-[#9a9a9a]'}`}>
+          <span className={`text-[10px] font-bold tracking-[0.2em] uppercase cursor-default pb-0.5 font-mono ${activeTab === 'feed' ? 'border-b-2' : ''}`}
+            style={{ color: activeTab === 'feed' ? 'var(--ink)' : 'var(--ink-faint)', borderColor: 'var(--ink)' }}>
             Intelligence Feed
           </span>
-          <span className={`text-[10px] font-bold tracking-[0.2em] uppercase cursor-default pb-0.5 ${activeTab === 'copilot' ? 'text-[#1a1a1a] border-b-2 border-[#1a1a1a]' : 'text-[#9a9a9a]'}`}>
+          <span className={`text-[10px] font-bold tracking-[0.2em] uppercase cursor-default pb-0.5 font-mono ${activeTab === 'copilot' ? 'border-b-2' : ''}`}
+            style={{ color: activeTab === 'copilot' ? 'var(--ink)' : 'var(--ink-faint)', borderColor: 'var(--ink)' }}>
             Copilot
           </span>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-[9px] font-mono text-[#9a9a9a] hidden md:block">
+          <span className="text-[9px] font-mono hidden md:block" style={{ color: 'var(--ink-faint)' }}>
             {briefings.length} briefings indexed
           </span>
         </div>
@@ -172,8 +182,9 @@ const EntityChip = ({ icon: Icon, label }) => {
     ? (label.name || label.label || JSON.stringify(label))
     : label;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#1a1a1a]/5 border border-[#1a1a1a]/15 text-[10px] font-medium text-[#3a3a3a] hover:bg-[#1a1a1a]/10 transition-colors cursor-default">
-      <Icon size={9} className="opacity-60" />
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-colors cursor-default"
+      style={{ background: 'var(--paper-mid)', border: '1px solid var(--ink-rule)', color: 'var(--ink-mid)', fontFamily: 'IBM Plex Mono, monospace' }}>
+      <Icon size={9} style={{ color: 'var(--ink-faint)' }} />
       {displayText}
     </span>
   );
@@ -185,18 +196,14 @@ const KeyEntities = ({ entities }) => {
   if (!people.length && !organizations.length && !locations.length) return null;
 
   return (
-    <div className="mb-6 pt-4 border-t border-[#1a1a1a]/10">
-      <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] mb-2 font-mono">Key Entities</p>
+    <div className="tint-entities mb-5 mt-5">
+      <p className="text-[8px] font-black tracking-[0.3em] uppercase mb-2.5 font-mono flex items-center gap-1.5" style={{ color: 'var(--ink-faint)' }}>
+        <Activity size={9} /> Key Entities
+      </p>
       <div className="flex flex-wrap gap-1.5">
-        {people.slice(0, 4).map((p, i) => (
-          <EntityChip key={i} icon={User} label={p} />
-        ))}
-        {organizations.slice(0, 4).map((o, i) => (
-          <EntityChip key={i} icon={Building2} label={o} />
-        ))}
-        {locations.slice(0, 4).map((l, i) => (
-          <EntityChip key={i} icon={MapPin} label={l} />
-        ))}
+        {people.slice(0, 4).map((p, i) => <EntityChip key={i} icon={User} label={p} />)}
+        {organizations.slice(0, 4).map((o, i) => <EntityChip key={i} icon={Building2} label={o} />)}
+        {locations.slice(0, 4).map((l, i) => <EntityChip key={i} icon={MapPin} label={l} />)}
       </div>
     </div>
   );
@@ -228,9 +235,9 @@ const MediaBiasSpectrum = ({ sources }) => {
   const allCenter = leftPct === 0 && rightPct === 0;
 
   return (
-    <div className="pt-5 mt-5 border-t border-[#1a1a1a]/10">
+    <div className="tint-spectrum mt-5">
       <div className="flex justify-between items-center mb-3">
-        <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono">Media Spectrum</p>
+        <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono" style={{ color: 'var(--ink-faint)' }}>Media Spectrum</p>
         <div className="flex gap-4 text-[8px] font-mono font-bold">
           <span className={biasCounts.left > 0 ? 'text-blue-700' : 'text-[#c8bfaf]'}>L {biasCounts.left}</span>
           <span className={biasCounts.center > 0 ? 'text-[#6b6b6b]' : 'text-[#c8bfaf]'}>C {biasCounts.center}</span>
@@ -280,31 +287,31 @@ const NarrativeDuel = ({ duelData }) => {
   const { west_summary, south_summary, convergence, divergence } = duelData;
 
   return (
-    <div className="mt-6 pt-6 border-t border-[#1a1a1a]/15">
+    <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--ink-rule-lt)' }}>
       <div className="flex items-center gap-2 mb-5">
-        <Swords size={13} className="text-[#6b6b6b]" />
-        <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono">Narrative Duel · Dialectical Analysis</p>
+        <Swords size={13} style={{ color: 'var(--ink-muted)' }} />
+        <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono" style={{ color: 'var(--ink-faint)' }}>Narrative Duel · Dialectical Analysis</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="border-l-4 border-l-blue-600 pl-4 py-1">
-          <p className="text-[8px] font-black tracking-[0.25em] text-blue-700 uppercase mb-2 font-mono">Atlanticist Strategy</p>
-          <p className="text-[12px] text-[#3a3a3a] leading-relaxed font-['Georgia',_serif] italic">{west_summary}</p>
+        <div className="tint-west">
+          <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-2 font-mono" style={{ color: 'var(--accent-blue)' }}>Atlanticist Strategy</p>
+          <p className="text-[12.5px] leading-relaxed italic" style={{ color: 'var(--ink-mid)', fontFamily: "'Source Serif 4', Georgia, serif" }}>{west_summary}</p>
         </div>
-        <div className="border-l-4 border-l-emerald-600 pl-4 py-1">
-          <p className="text-[8px] font-black tracking-[0.25em] text-emerald-700 uppercase mb-2 font-mono">Global South Realism</p>
-          <p className="text-[12px] text-[#3a3a3a] leading-relaxed font-['Georgia',_serif] italic">{south_summary}</p>
+        <div className="tint-south">
+          <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-2 font-mono" style={{ color: 'var(--accent-green)' }}>Global South Realism</p>
+          <p className="text-[12.5px] leading-relaxed italic" style={{ color: 'var(--ink-mid)', fontFamily: "'Source Serif 4', Georgia, serif" }}>{south_summary}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-[#1a1a1a]/3 p-4 border border-[#1a1a1a]/10">
-          <p className="text-[8px] font-black tracking-[0.25em] text-[#9a9a9a] uppercase mb-1.5 font-mono flex items-center gap-1.5"><Scale size={9} /> Convergence</p>
-          <p className="text-[11px] text-[#5a5a5a] leading-relaxed">{convergence}</p>
+        <div className="tint-converge">
+          <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-1.5 font-mono flex items-center gap-1.5" style={{ color: 'var(--ink-faint)' }}><Scale size={9} /> Convergence</p>
+          <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--ink-muted)', fontFamily: "'Source Serif 4', Georgia, serif" }}>{convergence}</p>
         </div>
-        <div className="bg-[#1a1a1a]/3 p-4 border border-[#1a1a1a]/10">
-          <p className="text-[8px] font-black tracking-[0.25em] text-[#9a9a9a] uppercase mb-1.5 font-mono flex items-center gap-1.5"><Zap size={9} /> Divergence</p>
-          <p className="text-[11px] text-[#5a5a5a] leading-relaxed">{divergence}</p>
+        <div className="tint-converge">
+          <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-1.5 font-mono flex items-center gap-1.5" style={{ color: 'var(--ink-faint)' }}><Zap size={9} /> Divergence</p>
+          <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--ink-muted)', fontFamily: "'Source Serif 4', Georgia, serif" }}>{divergence}</p>
         </div>
       </div>
     </div>
@@ -316,25 +323,29 @@ const NarrativeTimeline = ({ briefings, currentClusterId }) => {
   if (!briefings || briefings.length <= 1) return null;
 
   return (
-    <div className="mt-5 pt-5 border-t border-[#1a1a1a]/10">
-      <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] mb-4 font-mono flex items-center gap-1.5">
+    <div className="tint-timeline mt-5">
+      <p className="text-[8px] font-black tracking-[0.3em] uppercase mb-4 font-mono flex items-center gap-1.5" style={{ color: 'var(--ink-faint)' }}>
         <History size={9} /> Story Evolution
       </p>
-      <div className="space-y-2">
+      <div className="space-y-0">
         {briefings.map((b, i) => (
-          <div key={b.cluster_id} className={`flex items-start gap-3 py-2 border-b border-[#1a1a1a]/5 last:border-b-0 transition-opacity ${b.cluster_id === currentClusterId ? 'opacity-100' : 'opacity-40'
-            }`}>
-            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${b.cluster_id === currentClusterId ? 'bg-[#1a1a1a]' : 'bg-[#c8bfaf]'}`} />
+          <div key={b.cluster_id} className={`flex items-start gap-3 py-2.5 border-b last:border-b-0 transition-opacity ${b.cluster_id === currentClusterId ? 'opacity-100' : 'opacity-35'
+            }`} style={{ borderColor: 'var(--ink-rule-lt)' }}>
+            <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{
+              background: b.cluster_id === currentClusterId ? 'var(--ink)' : 'var(--ink-faint)'
+            }} />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-[#5a5a5a] leading-snug line-clamp-1 font-['Georgia',_serif] italic">
+              <p className="text-[11px] leading-snug line-clamp-1 italic" style={{ color: 'var(--ink-muted)', fontFamily: "'Source Serif 4', Georgia, serif" }}>
                 {cleanSummaryText(b.summary_text?.split('\n').find(l => l.replace(/^[#\s\-\*]+/, '').trim().length > 4) || b.summary_text?.split('\n')[0] || '')
                   .replace(/^#+\s*/, '').replace(/\*\*/g, '').trim()}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-[8px] font-mono px-1 py-0.5 ${b.risk_score >= 7 ? 'bg-red-100 text-red-700' : b.risk_score >= 4 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                }`}>{b.risk_score}</span>
-              <span className="text-[8px] font-mono text-[#9a9a9a]">
+              <span className="text-[8px] font-mono px-1 py-0.5" style={{
+                background: b.risk_score >= 7 ? '#f8e8e6' : b.risk_score >= 4 ? '#f8f0e0' : '#e8f2ec',
+                color: b.risk_score >= 7 ? 'var(--accent-red)' : b.risk_score >= 4 ? 'var(--accent-amber)' : 'var(--accent-green)'
+              }}>{b.risk_score}</span>
+              <span className="text-[8px] font-mono" style={{ color: 'var(--ink-faint)' }}>
                 {new Date(b.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
               </span>
             </div>
@@ -409,17 +420,17 @@ const BriefingCard = ({ briefing, index }) => {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.07, duration: 0.4 }}
-      className={`border-b border-[#1a1a1a]/15 ${isLead ? 'pb-8' : 'py-6'}`}
+      className={`border-b ${isLead ? 'pb-8' : 'py-6'}`} style={{ borderColor: 'var(--ink-rule)' }}
     >
       {/* Card Header */}
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <RiskBadge score={briefing.risk_score} />
-          <span className="text-[8px] font-mono text-[#9a9a9a] tracking-wider">
+          <span className="text-[8px] font-mono tracking-wider" style={{ color: 'var(--ink-faint)' }}>
             {new Date(briefing.generated_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </span>
           {briefing.narrative_id && (
-            <span className="text-[8px] font-mono text-[#9a9a9a] flex items-center gap-1">
+            <span className="text-[8px] font-mono flex items-center gap-1" style={{ color: 'var(--ink-faint)' }}>
               <Hash size={8} /> {briefing.narrative_id?.slice(0, 8)}
             </span>
           )}
@@ -427,7 +438,10 @@ const BriefingCard = ({ briefing, index }) => {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={fetchLogs}
-            className="text-[8px] font-mono text-[#9a9a9a] hover:text-[#1a1a1a] transition-colors tracking-widest uppercase border border-transparent hover:border-[#1a1a1a]/20 px-2 py-1"
+            className="text-[8px] font-mono tracking-widest uppercase px-2 py-1 transition-colors border border-transparent"
+            style={{ color: 'var(--ink-faint)' }}
+            onMouseOver={e => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.borderColor = 'var(--ink-rule)'; }}
+            onMouseOut={e => { e.currentTarget.style.color = 'var(--ink-faint)'; e.currentTarget.style.borderColor = 'transparent'; }}
           >
             {showLogs ? 'Hide' : 'Logs'}
           </button>
@@ -435,34 +449,43 @@ const BriefingCard = ({ briefing, index }) => {
       </div>
 
       {/* Headline */}
-      <h2 className={`font-['Playfair_Display',_serif] font-black text-[#1a1a1a] leading-tight mb-3 cursor-pointer hover:text-[#3a3a3a] transition-colors ${isLead ? 'text-2xl md:text-3xl' : 'text-lg md:text-xl'
-        }`} onClick={() => setExpanded(!expanded)}>
+      <h2
+        className={`font-black leading-tight mb-3 cursor-pointer transition-colors ${isLead ? 'text-2xl md:text-3xl' : 'text-lg md:text-xl'}`}
+        style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--ink)' }}
+        onClick={() => setExpanded(!expanded)}
+      >
         {headline}
       </h2>
 
       {/* Summary preview */}
       <div className={`overflow-hidden transition-all duration-500 ${expanded ? '' : 'max-h-32 relative'}`}>
-        <div className="prose max-w-none text-[13px] leading-relaxed text-[#4a4a4a]"
-          style={{ fontFamily: 'Georgia, serif' }}>
+        <div className="prose max-w-none">
           <ReactMarkdown
             components={{
               h1: ({ node, ...props }) => null,
-              h2: ({ node, ...props }) => <h3 className="text-[11px] font-black tracking-[0.2em] uppercase text-[#9a9a9a] mt-4 mb-1 font-mono not-italic" {...props} />,
-              p: ({ node, ...props }) => <p className="mb-3 text-[13px] text-[#4a4a4a] leading-relaxed" style={{ fontFamily: 'Georgia, serif' }} {...props} />,
-              strong: ({ node, ...props }) => <strong className="text-[#1a1a1a] font-bold" {...props} />
+              h2: ({ node, ...props }) => (
+                <p className="text-[8px] font-black tracking-[0.28em] uppercase mt-5 mb-1.5 font-mono not-italic" style={{ color: 'var(--ink-faint)' }} {...props} />
+              ),
+              p: ({ node, ...props }) => (
+                <p className="mb-3 text-[13.5px] leading-[1.74]" style={{ color: 'var(--ink-mid)', fontFamily: "'Source Serif 4', Georgia, serif" }} {...props} />
+              ),
+              strong: ({ node, ...props }) => <strong style={{ color: 'var(--ink)', fontWeight: 600 }} {...props} />
             }}
           >
             {cleanedText}
           </ReactMarkdown>
         </div>
         {!expanded && (
-          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#f2ede5] to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 h-14" style={{ background: 'linear-gradient(to top, var(--paper), transparent)' }} />
         )}
       </div>
 
       <button
         onClick={() => setExpanded(!expanded)}
-        className="text-[9px] font-black tracking-[0.25em] uppercase text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors mt-2 flex items-center gap-1 font-mono"
+        className="text-[9px] font-black tracking-[0.25em] uppercase mt-2 flex items-center gap-1 font-mono transition-colors"
+        style={{ color: 'var(--ink-muted)' }}
+        onMouseOver={e => e.currentTarget.style.color = 'var(--ink)'}
+        onMouseOut={e => e.currentTarget.style.color = 'var(--ink-muted)'}
       >
         {expanded ? '↑ Collapse' : '↓ Read Full Briefing'}
       </button>
@@ -479,11 +502,11 @@ const BriefingCard = ({ briefing, index }) => {
             <KeyEntities entities={briefing.key_entities} />
 
             {briefing.impact_analysis && (
-              <div className="mt-5 bg-[#2a2520] text-[#e8e0d0] p-5 border-l-2 border-l-[#c8a870]">
-                <p className="text-[8px] font-black tracking-[0.3em] uppercase mb-2 font-mono text-[#c8a870] flex items-center gap-1.5">
+              <div className="tint-impact mt-5">
+                <p className="text-[8px] font-black tracking-[0.3em] uppercase mb-2 font-mono flex items-center gap-1.5" style={{ color: '#b8933a' }}>
                   <Shield size={9} /> Strategic Impact Analysis
                 </p>
-                <p className="text-[12px] leading-relaxed italic text-[#d8d0c0]" style={{ fontFamily: 'Georgia, serif' }}>
+                <p className="text-[12.5px] leading-relaxed italic" style={{ color: '#d8cfc0', fontFamily: "'Source Serif 4', Georgia, serif" }}>
                   {briefing.impact_analysis}
                 </p>
               </div>
@@ -494,30 +517,36 @@ const BriefingCard = ({ briefing, index }) => {
             <NarrativeDuel duelData={duelData} />
 
             {/* Actions */}
-            <div className="mt-6 pt-6 border-t border-[#1a1a1a]/10">
+            <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--ink-rule-lt)' }}>
               {!investigativeReport && !isInvestigating && !duelData && !isDebating ? (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleInvestigate}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e0d0] text-[9px] font-black tracking-[0.2em] uppercase font-mono hover:bg-[#3a3a3a] transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 text-[9px] font-black tracking-[0.2em] uppercase font-mono transition-colors"
+                    style={{ border: '1px solid var(--ink)', background: 'var(--ink)', color: 'var(--paper)' }}
+                    onMouseOver={e => e.currentTarget.style.background = 'var(--ink-mid)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'var(--ink)'}
                   >
                     <Rocket size={12} /> Deep-Dive Investigation
                   </button>
                   <button
                     onClick={handleDebate}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-[#1a1a1a]/30 text-[#6b6b6b] text-[9px] font-black tracking-[0.2em] uppercase font-mono hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 text-[9px] font-black tracking-[0.2em] uppercase font-mono transition-colors"
+                    style={{ border: '1px solid var(--ink-rule)', color: 'var(--ink-muted)' }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--ink)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--ink-rule)'; e.currentTarget.style.color = 'var(--ink-muted)'; }}
                   >
                     <Swords size={12} /> Narrative Debate
                   </button>
                 </div>
               ) : (isInvestigating || isDebating) ? (
-                <div className="flex items-center gap-4 py-4 border border-[#1a1a1a]/15 px-5">
-                  <div className="w-4 h-4 border-2 border-[#1a1a1a]/20 border-t-[#1a1a1a] rounded-full animate-spin shrink-0" />
+                <div className="flex items-center gap-4 py-4 px-5 border" style={{ borderColor: 'var(--ink-rule)' }}>
+                  <div className="w-4 h-4 rounded-full animate-spin shrink-0" style={{ border: '2px solid var(--ink-rule)', borderTopColor: 'var(--ink)' }} />
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest font-mono text-[#1a1a1a]">
+                    <p className="text-[10px] font-black uppercase tracking-widest font-mono" style={{ color: 'var(--ink)' }}>
                       {isInvestigating ? 'Investigation in progress' : 'Dialectical simulation running'}
                     </p>
-                    <p className="text-[9px] text-[#9a9a9a] font-mono mt-0.5">
+                    <p className="text-[9px] font-mono mt-0.5" style={{ color: 'var(--ink-faint)' }}>
                       {isInvestigating ? 'Searching primary sources...' : 'Modeling narrative divergence...'}
                     </p>
                   </div>
@@ -525,12 +554,12 @@ const BriefingCard = ({ briefing, index }) => {
               ) : null}
 
               {investigativeReport && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border border-[#1a1a1a]/20 bg-[#1a1a1a]/2">
-                  <div className="border-b border-[#1a1a1a]/15 px-5 py-3 flex items-center gap-2">
-                    <BookOpen size={12} className="text-[#6b6b6b]" />
-                    <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono text-[#6b6b6b]">Investigative Report</p>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="tint-report">
+                  <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: 'var(--ink-rule)' }}>
+                    <BookOpen size={12} style={{ color: 'var(--ink-muted)' }} />
+                    <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono" style={{ color: 'var(--ink-muted)' }}>Investigative Report</p>
                   </div>
-                  <div className="p-5 prose max-w-none text-[12px] text-[#4a4a4a]" style={{ fontFamily: 'Georgia, serif' }}>
+                  <div className="p-5 prose max-w-none" style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontSize: '13px', color: 'var(--ink-mid)' }}>
                     <ReactMarkdown>{investigativeReport}</ReactMarkdown>
                   </div>
                 </motion.div>
@@ -547,23 +576,23 @@ const BriefingCard = ({ briefing, index }) => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden mt-4 pt-4 border-t border-[#1a1a1a]/10"
+            className="overflow-hidden mt-4 pt-4 border-t" style={{ borderColor: 'var(--ink-rule-lt)' }}
           >
-            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] mb-3 font-mono flex items-center gap-1.5">
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase mb-3 font-mono flex items-center gap-1.5" style={{ color: 'var(--ink-faint)' }}>
               <Activity size={9} /> Agent Thought Process
             </p>
             {loadingLogs ? (
-              <div className="text-[10px] font-mono text-[#9a9a9a] animate-pulse">Retrieving agent memory...</div>
+              <div className="text-[10px] font-mono animate-pulse" style={{ color: 'var(--ink-faint)' }}>Retrieving agent memory...</div>
             ) : (
               <div className="space-y-2">
                 {logs.map((log, i) => (
-                  <div key={i} className="bg-[#1a1a1a]/3 border border-[#1a1a1a]/10 p-3">
-                    <div className="flex justify-between text-[8px] font-mono font-bold mb-1">
-                      <span className="text-[#1a1a1a]">{log.agent_name}</span>
-                      <span className="text-[#9a9a9a]">Step {log.step_number}</span>
+                  <div key={i} className="tint-log">
+                    <div className="flex justify-between text-[8px] font-mono font-bold mb-1.5">
+                      <span style={{ color: '#d4c9b8' }}>{log.agent_name}</span>
+                      <span style={{ color: '#6b6259' }}>Step {log.step_number}</span>
                     </div>
-                    <p className="text-[11px] text-[#5a5a5a] italic mb-1.5" style={{ fontFamily: 'Georgia, serif' }}>"{log.thought_process}"</p>
-                    <p className="text-[9px] font-mono text-[#9a9a9a] bg-[#1a1a1a]/5 px-2 py-1">{log.action_taken}</p>
+                    <p className="text-[11px] italic mb-1.5" style={{ color: '#a89d8e', fontFamily: "'Source Serif 4', Georgia, serif" }}>"{log.thought_process}"</p>
+                    <p className="text-[9px] font-mono px-2 py-1" style={{ color: '#7a7066', background: 'rgba(255,255,255,0.04)' }}>{log.action_taken}</p>
                   </div>
                 ))}
               </div>
@@ -607,9 +636,9 @@ const Copilot = () => {
       <div className="flex-1 overflow-y-auto space-y-0 pr-1" style={{ scrollbarWidth: 'thin' }}>
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center px-10 py-20">
-            <div className="border border-[#1a1a1a]/15 p-8 max-w-sm">
-              <MessageSquare size={28} className="mx-auto text-[#c8bfaf] mb-4" strokeWidth={1.5} />
-              <p className="text-[11px] font-mono text-[#9a9a9a] leading-relaxed tracking-wide">
+            <div className="p-8 max-w-sm" style={{ border: '1px solid var(--ink-rule)' }}>
+              <MessageSquare size={28} className="mx-auto mb-4" strokeWidth={1.5} style={{ color: 'var(--ink-faint)' }} />
+              <p className="text-[11px] font-mono leading-relaxed tracking-wide" style={{ color: 'var(--ink-faint)' }}>
                 Query the Intelligence Copilot.<br />
                 Responses are grounded in verified briefings.
               </p>
@@ -624,19 +653,19 @@ const Copilot = () => {
             className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
           >
             {m.role === 'assistant' && (
-              <div className="w-6 h-6 bg-[#1a1a1a] flex items-center justify-center shrink-0 mr-3 mt-1">
-                <Shield size={12} className="text-[#e8e0d0]" />
+              <div className="w-6 h-6 flex items-center justify-center shrink-0 mr-3 mt-1" style={{ background: 'var(--ink)' }}>
+                <Shield size={12} style={{ color: 'var(--paper)' }} />
               </div>
             )}
-            <div className={`max-w-[82%] ${m.role === 'user'
-              ? 'bg-[#1a1a1a] text-[#e8e0d0] px-4 py-3'
-              : 'border border-[#1a1a1a]/15 bg-[#faf7f2] px-5 py-4'
-              }`}>
+            <div className="max-w-[82%]" style={m.role === 'user'
+              ? { background: 'var(--ink)', color: 'var(--paper)', padding: '0.75rem 1rem' }
+              : { border: '1px solid var(--ink-rule)', background: 'var(--paper-mid)', padding: '1rem 1.25rem' }
+            }>
               {m.role === 'user' ? (
-                <p className="text-[12px] font-mono">{m.content}</p>
+                <p className="text-[12px] font-mono" style={{ color: 'var(--paper)' }}>{m.content}</p>
               ) : (
-                <div className="prose max-w-none text-[12px] text-[#3a3a3a]" style={{ fontFamily: 'Georgia, serif' }}>
-                  <ReactMarkdown className="prose prose-sm">{m.content}</ReactMarkdown>
+                <div className="prose max-w-none text-[13px]" style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink-mid)' }}>
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
                 </div>
               )}
             </div>
@@ -644,15 +673,15 @@ const Copilot = () => {
         ))}
         {loading && (
           <div className="flex justify-start mb-4">
-            <div className="w-6 h-6 bg-[#1a1a1a] flex items-center justify-center shrink-0 mr-3 mt-1">
-              <Shield size={12} className="text-[#e8e0d0]" />
+            <div className="w-6 h-6 flex items-center justify-center shrink-0 mr-3 mt-1" style={{ background: 'var(--ink)' }}>
+              <Shield size={12} style={{ color: 'var(--paper)' }} />
             </div>
-            <div className="border border-[#1a1a1a]/15 bg-[#faf7f2] px-5 py-4">
+            <div className="px-5 py-4" style={{ border: '1px solid var(--ink-rule)', background: 'var(--paper-mid)' }}>
               <div className="flex gap-1.5 items-center">
                 {[0, 1, 2].map(i => (
-                  <span key={i} className="w-1.5 h-1.5 bg-[#1a1a1a]/30 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <span key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--ink-rule)', animationDelay: `${i * 0.15}s` }} />
                 ))}
-                <span className="text-[9px] font-mono text-[#9a9a9a] ml-2">Searching briefings...</span>
+                <span className="text-[9px] font-mono ml-2" style={{ color: 'var(--ink-faint)' }}>Searching briefings...</span>
               </div>
             </div>
           </div>
@@ -661,18 +690,27 @@ const Copilot = () => {
       </div>
 
       {/* Input */}
-      <div className="pt-4 border-t border-[#1a1a1a]/15 flex gap-0">
+      <div className="pt-4 flex gap-0" style={{ borderTop: '1px solid var(--ink-rule)' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyPress={e => e.key === 'Enter' && handleSend()}
           placeholder="Ask about global events, conflicts, or policy shifts..."
-          className="flex-1 bg-[#faf7f2] border border-[#1a1a1a]/20 border-r-0 px-4 py-3 text-[12px] font-mono focus:outline-none focus:border-[#1a1a1a]/50 placeholder:text-[#c8bfaf] text-[#1a1a1a]"
-          style={{ fontFamily: 'Georgia, serif' }}
+          className="flex-1 px-4 py-3 text-[13px] focus:outline-none"
+          style={{
+            fontFamily: "'Source Serif 4', Georgia, serif",
+            background: 'var(--paper-mid)',
+            border: '1px solid var(--ink-rule)',
+            borderRight: 'none',
+            color: 'var(--ink)',
+          }}
         />
         <button
           onClick={handleSend}
-          className="bg-[#1a1a1a] text-[#e8e0d0] px-5 py-3 text-[9px] font-black tracking-[0.2em] uppercase font-mono hover:bg-[#3a3a3a] transition-colors flex items-center gap-2"
+          className="px-5 py-3 text-[9px] font-black tracking-[0.2em] uppercase font-mono transition-colors flex items-center gap-2"
+          style={{ background: 'var(--ink)', color: 'var(--paper)' }}
+          onMouseOver={e => e.currentTarget.style.background = 'var(--ink-mid)'}
+          onMouseOut={e => e.currentTarget.style.background = 'var(--ink)'}
         >
           <Search size={13} />
           Query
@@ -701,43 +739,44 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full text-[#1a1a1a] flex flex-col" style={{ backgroundColor: '#f2ede5', fontFamily: 'Georgia, serif' }}>
-      {/* Load Playfair Display */}
-      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
+    <div className="min-h-screen w-full flex flex-col" style={{ backgroundColor: 'var(--paper)', color: 'var(--ink)', fontFamily: "'Source Serif 4', Georgia, serif" }}>
+      {/* Load fonts */}
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400;1,700&family=IBM+Plex+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet" />
 
       <Masthead briefings={briefings} activeTab={activeTab} />
 
       <div className="flex flex-1 max-w-screen-xl mx-auto w-full">
         {/* Sidebar */}
-        <aside className="hidden md:flex w-52 shrink-0 border-r border-[#1a1a1a]/15 flex-col pt-8 pb-6 sticky top-0 h-[calc(100vh-160px)]">
+        <aside className="hidden md:flex w-52 shrink-0 flex-col pt-8 pb-6 sticky top-0 h-[calc(100vh-160px)]"
+          style={{ borderRight: '1px solid var(--ink-rule)', background: 'var(--paper-warm)' }}>
           <div className="px-4 mb-6">
-            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-3">Navigation</p>
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono mb-3" style={{ color: 'var(--ink-faint)' }}>Navigation</p>
             <nav className="space-y-0.5">
               <SidebarItem icon={Rss} label="Intel Feed" active={activeTab === 'feed'} onClick={() => setActiveTab('feed')} count={briefings.length} />
               <SidebarItem icon={MessageSquare} label="Copilot" active={activeTab === 'copilot'} onClick={() => setActiveTab('copilot')} />
             </nav>
           </div>
 
-          <div className="px-4 mt-6 border-t border-[#1a1a1a]/10 pt-6">
-            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-3">Status</p>
+          <div className="px-4 mt-6 pt-6" style={{ borderTop: '1px solid var(--ink-rule-lt)' }}>
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono mb-3" style={{ color: 'var(--ink-faint)' }}>Status</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                <span className="text-[9px] font-mono text-[#6b6b6b]">Feed Active</span>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--accent-green)' }} />
+                <span className="text-[9px] font-mono" style={{ color: 'var(--ink-muted)' }}>Feed Active</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                <span className="text-[9px] font-mono text-[#6b6b6b]">Embeddings Ready</span>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent-blue)' }} />
+                <span className="text-[9px] font-mono" style={{ color: 'var(--ink-muted)' }}>Embeddings Ready</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9a9a9a]" />
-                <span className="text-[9px] font-mono text-[#6b6b6b]">Vector Search</span>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--ink-faint)' }} />
+                <span className="text-[9px] font-mono" style={{ color: 'var(--ink-muted)' }}>Vector Search</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-auto px-4 pt-4 border-t border-[#1a1a1a]/10">
-            <p className="text-[8px] font-mono text-[#c8bfaf] leading-relaxed">
+          <div className="mt-auto px-4 pt-4" style={{ borderTop: '1px solid var(--ink-rule-lt)' }}>
+            <p className="text-[8px] font-mono leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
               Multi-agent news intelligence system. Data sourced from global verified outlets.
             </p>
           </div>
@@ -757,11 +796,11 @@ export default function App() {
                 loading ? (
                   <div className="space-y-6">
                     {[1, 2, 3].map(i => (
-                      <div key={i} className="border-b border-[#1a1a1a]/15 pb-6 animate-pulse">
-                        <div className="h-3 bg-[#1a1a1a]/10 w-24 mb-3 rounded" />
-                        <div className="h-8 bg-[#1a1a1a]/10 w-3/4 mb-2 rounded" />
-                        <div className="h-3 bg-[#1a1a1a]/5 w-full mb-1 rounded" />
-                        <div className="h-3 bg-[#1a1a1a]/5 w-5/6 rounded" />
+                      <div key={i} className="pb-6 animate-pulse" style={{ borderBottom: '1px solid var(--ink-rule)' }}>
+                        <div className="h-2.5 w-24 mb-3 rounded" style={{ background: 'var(--ink-rule)' }} />
+                        <div className="h-7 w-3/4 mb-2 rounded" style={{ background: 'var(--ink-rule)' }} />
+                        <div className="h-3 w-full mb-1 rounded" style={{ background: 'var(--ink-rule-lt)' }} />
+                        <div className="h-3 w-5/6 rounded" style={{ background: 'var(--ink-rule-lt)' }} />
                       </div>
                     ))}
                   </div>
@@ -772,16 +811,16 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-24 border border-dashed border-[#1a1a1a]/15">
-                    <p className="text-[11px] font-mono text-[#9a9a9a]">No active narratives detected.</p>
-                    <p className="text-[9px] font-mono text-[#c8bfaf] mt-1">Ensure ingestion service is running.</p>
+                  <div className="text-center py-24 border border-dashed" style={{ borderColor: 'var(--ink-rule)' }}>
+                    <p className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>No active narratives detected.</p>
+                    <p className="text-[9px] font-mono mt-1" style={{ color: 'var(--ink-faint)', opacity: 0.6 }}>Ensure ingestion service is running.</p>
                   </div>
                 )
               ) : (
                 <div>
-                  <div className="border-b border-[#1a1a1a]/15 pb-6 mb-8">
-                    <h2 className="font-['Playfair_Display',_serif] text-2xl font-black text-[#1a1a1a] mb-1">Intelligence Copilot</h2>
-                    <p className="text-[11px] font-mono text-[#9a9a9a]">Ask the AI about any topic covered in the current briefings.</p>
+                  <div className="pb-6 mb-8" style={{ borderBottom: '1px solid var(--ink-rule)' }}>
+                    <h2 className="text-2xl font-black mb-1" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--ink)' }}>Intelligence Copilot</h2>
+                    <p className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>Ask the AI about any topic covered in the current briefings.</p>
                   </div>
                   <Copilot />
                 </div>
@@ -791,36 +830,37 @@ export default function App() {
         </main>
 
         {/* Right rail - desktop only */}
-        <aside className="hidden lg:block w-56 shrink-0 border-l border-[#1a1a1a]/15 pt-8 pb-6 px-5 sticky top-0 h-[calc(100vh-160px)]">
-          <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-4">Risk Summary</p>
+        <aside className="hidden lg:block w-56 shrink-0 pt-8 pb-6 px-5 sticky top-0 h-[calc(100vh-160px)]"
+          style={{ borderLeft: '1px solid var(--ink-rule)', background: 'var(--paper-warm)' }}>
+          <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono mb-4" style={{ color: 'var(--ink-faint)' }}>Risk Summary</p>
           {!loading && briefings.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-0">
               {[
-                { label: 'Critical', min: 7, color: 'bg-red-600' },
-                { label: 'Elevated', min: 4, max: 7, color: 'bg-amber-500' },
-                { label: 'Stable', max: 4, color: 'bg-emerald-700' },
+                { label: 'Critical', min: 7, dotColor: 'var(--accent-red)' },
+                { label: 'Elevated', min: 4, max: 7, dotColor: 'var(--accent-amber)' },
+                { label: 'Stable', max: 4, dotColor: 'var(--accent-green)' },
               ].map(tier => {
                 const count = briefings.filter(b =>
                   (tier.min === undefined || b.risk_score >= tier.min) &&
                   (tier.max === undefined || b.risk_score < tier.max)
                 ).length;
                 return (
-                  <div key={tier.label} className="flex items-center justify-between py-1.5 border-b border-[#1a1a1a]/8">
+                  <div key={tier.label} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--ink-rule-lt)' }}>
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-sm ${tier.color}`} />
-                      <span className="text-[9px] font-mono text-[#6b6b6b]">{tier.label}</span>
+                      <span className="w-2 h-2 rounded-sm" style={{ background: tier.dotColor }} />
+                      <span className="text-[9px] font-mono" style={{ color: 'var(--ink-muted)' }}>{tier.label}</span>
                     </div>
-                    <span className="text-[10px] font-black font-mono text-[#1a1a1a]">{count}</span>
+                    <span className="text-[11px] font-black font-mono" style={{ color: 'var(--ink)' }}>{count}</span>
                   </div>
                 );
               })}
             </div>
           )}
 
-          <div className="mt-6 pt-6 border-t border-[#1a1a1a]/10">
-            <p className="text-[8px] font-black tracking-[0.3em] uppercase text-[#9a9a9a] font-mono mb-3">Latest Update</p>
+          <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--ink-rule-lt)' }}>
+            <p className="text-[8px] font-black tracking-[0.3em] uppercase font-mono mb-3" style={{ color: 'var(--ink-faint)' }}>Latest Update</p>
             {briefings[0] && (
-              <p className="text-[9px] font-mono text-[#9a9a9a] leading-relaxed">
+              <p className="text-[9px] font-mono leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
                 {new Date(briefings[0].generated_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
